@@ -18,15 +18,17 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	ds := s.docServer(ctx)
 	co := s.collabora(ctx)
 	out := map[string]any{
-		"engines":    s.engines(ctx),
-		"engine":     s.userEngine(ctx, u.ID, ""),
-		"title":      firstNonEmpty(s.store.GetSetting(ctx, "title"), "Pocket Office"),
-		"admin":      u.IsAdmin(),
-		"core":       s.core.Configured(),
-		"core_url":   s.corePublicURL(),
-		"base_url":   s.cfg.BaseURL,
-		"max_upload": s.cfg.MaxUploadMB,
-		"me":         s.store.UserSettings(ctx, u.ID),
+		"engines":        s.engines(ctx),
+		"engine":         s.userEngine(ctx, u.ID, ""),
+		"default_engine": s.boxEngine(ctx),
+		"collab":         s.collabInfo(ctx, u.ID),
+		"title":          firstNonEmpty(s.store.GetSetting(ctx, "title"), "Pocket Office"),
+		"admin":          u.IsAdmin(),
+		"core":           s.core.Configured(),
+		"core_url":       s.corePublicURL(),
+		"base_url":       s.cfg.BaseURL,
+		"max_upload":     s.cfg.MaxUploadMB,
+		"me":             s.store.UserSettings(ctx, u.ID),
 		"document_server": map[string]any{
 			"configured": ds.Configured(), "url": ds.PublicURL,
 		},
