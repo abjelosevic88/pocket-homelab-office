@@ -16,7 +16,10 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := userFrom(ctx)
 	ds := s.docServer(ctx)
+	co := s.collabora(ctx)
 	out := map[string]any{
+		"engines":    s.engines(ctx),
+		"engine":     s.userEngine(ctx, u.ID, ""),
 		"title":      firstNonEmpty(s.store.GetSetting(ctx, "title"), "Pocket Office"),
 		"admin":      u.IsAdmin(),
 		"core":       s.core.Configured(),
@@ -35,6 +38,7 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 			"from_env": map[string]any{"url": s.cfg.OnlyOfficeURL, "internal_url": s.cfg.OnlyOfficeInternalURL, "callback_url": s.cfg.CallbackURL, "secret_set": s.cfg.OnlyOfficeJWTSecret != ""},
 		}
 		out["folder_roots"] = s.cfg.FolderRoots
+		out["collabora"] = map[string]any{"configured": co.Configured(), "url": co.PublicURL, "internal_url": co.InternalURL, "wopi_url": s.wopiBase(ctx), "from_env": map[string]any{"url": s.cfg.CollaboraURL, "internal_url": s.cfg.CollaboraInternalURL, "wopi_url": s.cfg.WOPIURL}}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -52,6 +56,11 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			Secret      *string `json:"secret"`
 			CallbackURL *string `json:"callback_url"`
 		} `json:"document_server"`
+		Collabora *struct {
+			URL         *string `json:"url"`
+			InternalURL *string `json:"internal_url"`
+			WOPIURL     *string `json:"wopi_url"`
+		} `json:"collabora"`
 	}
 	if err := decode(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
@@ -63,7 +72,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = s.store.SetUserSetting(ctx, u.ID, k, v)
 	}
-	if in.Title != nil || in.DocumentServer != nil {
+	if in.Title != nil || in.DocumentServer != nil || in.Collabora != nil {
 		if !u.IsAdmin() {
 			writeErr(w, http.StatusForbidden, "only an admin can change the box settings")
 			return
@@ -94,7 +103,54 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			_ = s.store.SetSetting(ctx, "callback_url", strings.TrimRight(strings.TrimSpace(*d.CallbackURL), "/"))
 		}
 	}
+	if c := in.Collabora; c != nil {
+		if c.URL != nil {
+			v := strings.TrimRight(strings.TrimSpace(*c.URL), "/")
+			if v != "" && !strings.HasPrefix(v, "http://") && !strings.HasPrefix(v, "https://") {
+				writeErr(w, http.StatusBadRequest, "the Collabora address must start with http:// or https://")
+				return
+			}
+			_ = s.store.SetSetting(ctx, "co_url", v)
+		}
+		if c.InternalURL != nil {
+			_ = s.store.SetSetting(ctx, "co_internal_url", strings.TrimRight(strings.TrimSpace(*c.InternalURL), "/"))
+		}
+		if c.WOPIURL != nil {
+			_ = s.store.SetSetting(ctx, "wopi_url", strings.TrimRight(strings.TrimSpace(*c.WOPIURL), "/"))
+		}
+	}
 	s.handleGetSettings(w, r)
+}
+
+// handleTestCollabora fetches discovery and checks that Collabora can read
+// a file from this app through WOPI.
+func (s *Server) handleTestCollabora(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	ctx := r.Context()
+	co := s.collabora(ctx)
+	out := map[string]any{"ok": false, "url": co.PublicURL, "internal_url": co.InternalURL, "wopi_url": s.wopiBase(ctx)}
+	if !co.Configured() {
+		out["error"] = "no address set"
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	start := time.Now()
+	n, err := co.Count(ctx)
+	if err != nil {
+		out["error"] = err.Error()
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	out["types"], out["discovery_ms"] = n, time.Since(start).Milliseconds()
+	if s.wopiBase(ctx) == "" {
+		out["error"] = "set BASE_URL or WOPI_URL so Collabora can reach this app"
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	out["ok"] = true
+	writeJSON(w, http.StatusOK, out)
 }
 
 // handleTestDocumentServer checks the health endpoint and that Document

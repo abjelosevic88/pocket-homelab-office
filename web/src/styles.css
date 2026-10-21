@@ -295,3 +295,6 @@ input:disabled { opacity: .6; }
 .folder-row:hover { background: var(--surface-2); }
 .chip { font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
 .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-hover); font-weight: 600; }
+
+.two-col > .span-2 { grid-column: 1 / -1; }
+iframe[name="po-collabora"] { background: #fff; }

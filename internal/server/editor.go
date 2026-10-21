@@ -68,6 +68,7 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		Desktop bool   `json:"desktop"`
 		Dark    bool   `json:"dark"`
 		Lang    string `json:"lang"`
+		Engine  string `json:"engine"` // onlyoffice | collabora; empty = the person's default
 	}
 	if err := decode(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid json")
@@ -78,11 +79,12 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "a file path is needed")
 		return
 	}
-	ds := s.docServer(ctx)
-	if !ds.Configured() {
-		writeErr(w, http.StatusServiceUnavailable, "no Document Server is set up yet (Settings → Document Server)")
+	engine := s.userEngine(ctx, u.ID, in.Engine)
+	if engine == "" {
+		writeErr(w, http.StatusServiceUnavailable, "no editor is set up yet (Settings → Document Server)")
 		return
 	}
+	ds := s.docServer(ctx)
 	cb := s.callbackBase(ctx)
 	if cb == "" {
 		writeErr(w, http.StatusServiceUnavailable, "set BASE_URL or CALLBACK_URL so Document Server can reach this app")
@@ -118,6 +120,33 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	_ = s.store.Touch(ctx, u.ID, src.ID, p)
+
+	common := map[string]any{"key": k.Key, "kind": string(f.Kind), "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy,
+		"exports": office.Exports(p), "file": view(e), "draft": src.Kind == "drafts", "engines": s.engines(ctx)}
+	if engine == "collabora" {
+		co, err := s.collaboraOpen(ctx, k, e, f, firstNonEmpty(in.Lang, "en"), in.Dark)
+		if err != nil {
+			// fall back to Document Server when Collabora does not know the type
+			if !ds.Configured() {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			engine = "onlyoffice"
+		} else {
+			mode := "view"
+			if co["edit"] == true {
+				mode = "edit"
+			}
+			common["engine"], common["mode"], common["collabora"], common["phone_view"] = "collabora", mode, co, false
+			s.publish("office.opened", fmt.Sprintf("file:%d:%s", src.ID, p), map[string]any{"user_email": u.Email, "name": e.Name, "path": p, "source": src.Kind, "mode": mode, "kind": string(f.Kind), "engine": "collabora", "url": s.fileURL(src.ID, p)})
+			writeJSON(w, http.StatusOK, common)
+			return
+		}
+	}
+	if !ds.Configured() {
+		writeErr(w, http.StatusServiceUnavailable, "no Document Server is set up yet (Settings → Document Server)")
+		return
+	}
 
 	mode := "view"
 	if f.Edit {

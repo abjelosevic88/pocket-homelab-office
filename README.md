@@ -42,6 +42,14 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
   **Drafts**, autosaved there while you edit; **Save to…** force-saves and moves it into the place and folder you
   pick. Nothing touches your Nextcloud or archive until you say so.
 
+**Two engines**
+- **ONLYOFFICE Document Server** (default): the editor runs in the browser and draws the document itself —
+  snappy once loaded, heavier on the machine.
+- **Collabora Online** (optional): the document is drawn on the server and streamed as tiles over WOPI —
+  light on the browser, needs a steady connection. Each person picks a default under Settings → Account, and
+  the ⋯ menu in any open file switches engines for that file. Both save into the same places with the same
+  conflict guard.
+
 **Editing with ONLYOFFICE**
 - What opens, edits and converts comes straight from Document Server's own format manifest (86 types):
   `.docx`, `.xlsx`, `.pptx` with their macro-enabled and template variants (`.docm`, `.dotm`, `.xlsm`, `.xltm`,
@@ -125,8 +133,9 @@ Pocket Core for people, services and links — and sits next to
 [Pocket Core](https://github.com/abjelosevic88/pocket-homelab-core). The storage backends (local folder, WebDAV,
 Nextcloud) are shared code with Notes and Documents.
 
-ONLYOFFICE is a trademark of Ascensio System SIA; Pocket Office is an independent client of its Document Server
-and ships the Document Server's own blank `new.docx` / `new.xlsx` / `new.pptx` as templates.
+ONLYOFFICE is a trademark of Ascensio System SIA and Collabora Online of Collabora Productivity Ltd; Pocket Office
+is an independent client of both (ONLYOFFICE's JavaScript API and WOPI respectively) and ships the Document
+Server's own blank `new.docx` / `new.xlsx` / `new.pptx` as templates.
 
 ## License
 

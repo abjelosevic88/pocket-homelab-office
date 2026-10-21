@@ -61,6 +61,14 @@ type Config struct {
 	// report saves. Defaults to CORE_APP_URL, then BASE_URL.
 	CallbackURL string
 
+	// Collabora Online (CODE) as a second engine, reached over WOPI.
+	CollaboraURL         string // what browsers load the editor from
+	CollaboraInternalURL string // how this server fetches hosting/discovery; defaults to CollaboraURL
+	// WOPIURL is how Collabora reaches this app AND the origin the browser
+	// embeds Collabora from (Collabora only allows the WOPI host's origin to
+	// frame it), so it defaults to BASE_URL rather than CALLBACK_URL.
+	WOPIURL string
+
 	// FolderRoots are server folders people may attach as a source
 	// (comma separated absolute paths). Empty = none.
 	FolderRoots []string
@@ -141,6 +149,9 @@ func Load() (*Config, error) {
 		OnlyOfficeJWTSecret:   env("ONLYOFFICE_JWT_SECRET", ""),
 		OnlyOfficeJWTHeader:   env("ONLYOFFICE_JWT_HEADER", "AuthorizationJwt"),
 		CallbackURL:           strings.TrimRight(env("CALLBACK_URL", ""), "/"),
+		CollaboraURL:          strings.TrimRight(env("COLLABORA_URL", ""), "/"),
+		CollaboraInternalURL:  strings.TrimRight(env("COLLABORA_INTERNAL_URL", ""), "/"),
+		WOPIURL:               strings.TrimRight(env("WOPI_URL", ""), "/"),
 	}
 	if c.CoreAppURL == "" {
 		c.CoreAppURL = c.BaseURL

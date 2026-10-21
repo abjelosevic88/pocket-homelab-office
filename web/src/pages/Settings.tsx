@@ -181,14 +181,39 @@ function ServerTab() {
         </form>
         {res && <div className={`callout mt ${res.ok ? 'success' : 'danger'}`}>{res.ok ? <>✓ Document Server answers in {String(res.health_ms)} ms and converted a probe fetched from {String(res.callback_url)} to PDF in {String(res.convert_ms)} ms.</> : <>✕ {String(res.error)}</>}</div>}
       </Card>
+      <CollaboraCard />
     </div>
+  )
+}
+
+function CollaboraCard() {
+  const { settings, reloadSettings } = useApp()
+  const { toast } = useToast()
+  const co = settings?.collabora
+  const [f, setF] = useState({ url: co?.url || '', internal_url: co?.internal_url || '', wopi_url: co?.wopi_url || '' })
+  const [busy, setBusy] = useState(false)
+  const [res, setRes] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => { if (co) setF({ url: co.url || '', internal_url: co.internal_url || '', wopi_url: co.wopi_url || '' }) }, [co?.url, co?.internal_url, co?.wopi_url]) // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async (e: React.FormEvent) => { e.preventDefault(); setBusy(true); try { await api.put(`${V1}/settings`, { collabora: f }); await reloadSettings(); toast('Saved') } catch (err) { toast((err as Error).message, 'err') } finally { setBusy(false) } }
+  const test = async () => { setBusy(true); setRes(null); try { setRes(await api.post<Record<string, unknown>>(`${V1}/settings/collabora/test`)) } catch (e) { setRes({ error: (e as Error).message }) } finally { setBusy(false) } }
+  return (
+    <Card title="Collabora Online (optional second engine)">
+      <p className="muted small">A <a href="https://www.collaboraonline.com/code/" target="_blank" rel="noreferrer">Collabora Online</a> server can edit the same files, drawn on the server instead of in the browser. Pocket Office speaks WOPI to it: Collabora must list this app's WOPI address in its <code>aliasgroup</code> settings (e.g. <code>aliasgroup2: {co?.wopi_url || settings?.base_url}</code>), and only that address's origin may embed Collabora, so it is normally the public address. People then choose their engine under Account & API, or per file from the ⋯ menu.</p>
+      <form onSubmit={save} className="grid mt" style={{ gap: 14 }}>
+        <Field label="Address browsers use" help="e.g. https://collabora.example.com; empty = Collabora off"><input value={f.url} onChange={e => setF(x => ({ ...x, url: e.target.value }))} placeholder="https://collabora.example.com" /></Field>
+        <Field label="Address this server uses" help="Optional: how this app fetches hosting/discovery (e.g. http://collabora:9980)"><input value={f.internal_url} onChange={e => setF(x => ({ ...x, internal_url: e.target.value }))} /></Field>
+        <Field label="How Collabora reaches this app (WOPI)" help="Must be reachable from the Collabora container and match the address people open; empty = the public address"><input value={f.wopi_url} onChange={e => setF(x => ({ ...x, wopi_url: e.target.value }))} placeholder={settings?.base_url} /></Field>
+        <div className="form-actions"><button type="button" className="btn" disabled={busy || !f.url} onClick={test}>Test</button><button className="btn primary" disabled={busy}>Save</button></div>
+      </form>
+      {res && <div className={`callout mt ${res.ok ? 'success' : 'danger'}`}>{res.ok ? <>✓ Collabora answers; discovery lists {String(res.types)} file types ({String(res.discovery_ms)} ms). The WOPI round trip is proven on the first open.</> : <>✕ {String(res.error)}</>}</div>}
+    </Card>
   )
 }
 
 // ---------- Account ----------
 
 function AccountTab() {
-  const { user, refresh } = useApp()
+  const { user, refresh, settings, reloadSettings } = useApp()
   const { toast } = useToast()
   const [f, setF] = useState({ name: user?.name || '', current_password: '', new_password: '' })
   const tokens = useAsync(() => api.get<APIToken[]>(`${V1}/auth/tokens`), [])
@@ -196,8 +221,13 @@ function AccountTab() {
   const [tokName, setTokName] = useState('')
   const save = async (e: React.FormEvent) => { e.preventDefault(); try { await api.put(`${V1}/auth/me`, f); await refresh(); setF(x => ({ ...x, current_password: '', new_password: '' })); toast('Saved') } catch (e) { toast((e as Error).message, 'err') } }
   const mint = async (e: React.FormEvent) => { e.preventDefault(); try { setNewTok(await api.post(`${V1}/auth/tokens`, { name: tokName || 'token' })); setTokName(''); tokens.reload() } catch (e) { toast((e as Error).message, 'err') } }
+  const setEngine = async (e: string) => { try { await api.put(`${V1}/settings`, { me: { engine: e } }); await reloadSettings(); toast('Saved') } catch (err) { toast((err as Error).message, 'err') } }
   return (
     <div className="two-col">
+      {settings && settings.engines.length > 1 && <Card title="Editor" className="span-2">
+        <p className="muted small">Two engines are set up. ONLYOFFICE draws the document in your browser (snappy once loaded, heavier on the machine); Collabora draws it on the server and streams the picture (light on the browser, needs a good connection). Pick your default; the ⋯ menu in any open file switches for that file.</p>
+        <Segmented value={settings.engine || settings.engines[0]} onChange={setEngine} options={settings.engines.map(e => ({ value: e, label: e === 'collabora' ? 'Collabora Online' : 'ONLYOFFICE' }))} />
+      </Card>}
       <Card title="You">
         <form onSubmit={save} className="grid" style={{ gap: 12 }}>
           <Field label="Email"><input value={user?.email || ''} disabled /></Field>

@@ -20,6 +20,9 @@ services:
       ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
       # How Document Server reaches Pocket Office to fetch files and report saves.
       CALLBACK_URL: http://pocket-office:8080
+      # Optional: Collabora Online as a second engine (its aliasgroup must list CALLBACK_URL's origin).
+      # COLLABORA_URL: https://collabora.example.com
+      # COLLABORA_INTERNAL_URL: http://collabora:9980
       # Optional: Pocket Core (Nextcloud accounts and Pocket Documents links per person, Sign in with Pocket Core).
       # CORE_URL: http://pocket-core:8080
       # CORE_REGISTRATION_KEY: ${CORE_REGISTRATION_KEY}

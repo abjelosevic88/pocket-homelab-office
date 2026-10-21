@@ -7,7 +7,7 @@ import { sourceIcon, stem } from '../lib/format'
 import { Field, Modal, useToast } from './ui'
 
 /** Save a draft into a real place: pick the place, walk to a folder, name it. */
-export function SaveTo({ path, name, onClose, onSaved }: { path: string; name: string; onClose: () => void; onSaved?: (sourceId: number, file: Entry) => void }) {
+export function SaveTo({ path, name, onClose, onSaved, beforeSave }: { path: string; name: string; onClose: () => void; onSaved?: (sourceId: number, file: Entry) => void; beforeSave?: () => Promise<void> }) {
   const { sources } = useApp()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -30,6 +30,7 @@ export function SaveTo({ path, name, onClose, onSaved }: { path: string; name: s
   const save = async (overwrite = false) => {
     setBusy(true); setErr('')
     try {
+      if (beforeSave && !overwrite) await beforeSave()
       const r = await api.post<{ source: number; file: Entry }>(`${V1}/drafts/save`, { path, source_id: sid, dir, name: fname, keep, overwrite })
       localStorage.setItem('po-save-place', String(sid))
       toast(`Saved to ${place?.name}${dir ? ' / ' + dir : ''}`)

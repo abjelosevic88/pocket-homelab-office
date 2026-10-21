@@ -49,6 +49,9 @@ type Server struct {
 
 	saveMu sync.Mutex // one Document Server save at a time per key
 	saves  map[string]*sync.Mutex
+
+	co   *office.Collabora
+	coMu sync.Mutex
 }
 
 // New creates a server.
@@ -123,6 +126,11 @@ func (s *Server) Router() http.Handler {
 	// token in the file address, a JWT on the callback.
 	r.Get("/api/v1/oo/file/{key}", s.handleFetchFile)
 	r.Post("/api/v1/oo/callback/{key}", s.handleCallback)
+	// Collabora Online talks WOPI; the access token is in the query.
+	r.Get("/wopi/files/{key}", s.handleWOPICheckFileInfo)
+	r.Get("/wopi/files/{key}/contents", s.handleWOPIGetFile)
+	r.Post("/wopi/files/{key}/contents", s.handleWOPIPutFile)
+	r.Post("/wopi/files/{key}", s.handleWOPIFileOps)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/login", s.handleLogin)
@@ -170,6 +178,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)
 			r.Post("/settings/documentserver/test", s.handleTestDocumentServer)
+			r.Post("/settings/collabora/test", s.handleTestCollabora)
 			r.Get("/users", s.handleListUsers)
 			r.Post("/users", s.handleCreateUser)
 			r.Put("/users/{id}", s.handleUpdateUser)
@@ -370,10 +379,13 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	ok, errStr := s.coreOK, s.coreErr
 	s.coreMu.Unlock()
 	ds := s.docServer(r.Context())
+	co := s.collabora(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version": Version, "uptime_s": int(time.Since(s.started).Seconds()), "base_url": s.cfg.BaseURL,
 		"core":            map[string]any{"configured": s.core.Configured(), "url": s.cfg.CoreURL, "public_url": s.corePublicURL(), "registered": ok, "error": errStr},
 		"document_server": map[string]any{"configured": ds.Configured(), "url": ds.PublicURL},
+		"collabora":       map[string]any{"configured": co.Configured(), "url": co.PublicURL},
+		"engines":         s.engines(r.Context()),
 	})
 }
 
@@ -398,7 +410,7 @@ func (s *Server) handleFormats(w http.ResponseWriter, r *http.Request) {
 // ---------- static / SPA ----------
 
 func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/api/") {
+	if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/wopi/") {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}

@@ -27,6 +27,9 @@ Settings → Document Server (stored in the database, overriding the environment
 | `ONLYOFFICE_JWT_SECRET` | – | the `JWT_SECRET` Document Server was started with. Strongly recommended; without it anyone who can reach Document Server can make it fetch files |
 | `ONLYOFFICE_JWT_HEADER` | `AuthorizationJwt` | Document Server's `JWT_HEADER` |
 | `CALLBACK_URL` | `CORE_APP_URL`, else `BASE_URL` | how Document Server reaches **this app**: it downloads files from `CALLBACK_URL/api/v1/oo/file/…` and posts saves to `CALLBACK_URL/api/v1/oo/callback/…`. Must be reachable from the Document Server container (`http://pocket-office:8080`, `http://host.docker.internal:8186`, or the public address). Document Server refuses private addresses unless started with `ALLOW_PRIVATE_IP_ADDRESS=true` |
+| `COLLABORA_URL` | – | optional second engine: Collabora Online as browsers reach it (`https://collabora.example.com`). Collabora must trust this app as a WOPI host: add `CALLBACK_URL`'s origin to its `aliasgroupN` (e.g. `aliasgroup2: http://pocket-office:8080`) |
+| `COLLABORA_INTERNAL_URL` | `COLLABORA_URL` | how this server fetches `hosting/discovery` |
+| `WOPI_URL` | `BASE_URL` | how Collabora reaches this app for WOPI. Collabora lets only this address's origin embed it, so it is normally the public address (the Collabora container must resolve and reach it) |
 | `CORE_URL` | – | Pocket Core as the app reaches it (`http://pocket-core:8080`, `http://host.docker.internal:8179`) |
 | `CORE_REGISTRATION_KEY` | – | from Core → Settings. Used once; the app token Core mints is kept in `DATA_DIR/core.token` |
 | `CORE_APP_URL` | `BASE_URL` | how Core reaches the app for health checks |
@@ -60,6 +63,10 @@ Keep `DATA_DIR` at mode 0700. Files in Nextcloud, WebDAV, Pocket Documents or a 
 The format table (`internal/office/templates/onlyoffice-docs-formats.json`) is the manifest Document Server ships: a type with `edit` or `lossy-edit` opens in the editor and saves back as itself; a type with only `view` + `auto-convert` (`.doc`, `.xls`, `.ppt`, `.pages`…) opens in the viewer and **Edit a copy** converts it into the family's editable type next to the original; Visio types open in the diagram viewer. **Download as…** offers exactly that type's `convert` list (PDF first), and `/export?to=` refuses anything else. Replace the JSON with the one from a newer Document Server (`/var/www/onlyoffice/documentserver/document-formats/`) to pick up new types.
 
 On phones the free (Community) Document Server offers its mobile editors for viewing only, so files open in the viewer there; **Edit** in the top bar opens the full desktop editor on the phone instead.
+
+## Collabora (WOPI)
+
+With `COLLABORA_URL` set (or the address saved in Settings → Document Server), Pocket Office is a WOPI host: `GET /wopi/files/{key}` (CheckFileInfo), `GET /wopi/files/{key}/contents` (GetFile), `POST /wopi/files/{key}/contents` (PutFile) and `POST /wopi/files/{key}` (PutRelative for *Save as*; lock calls are answered without locks). The key is the same document key the ONLYOFFICE flow uses and the `access_token` is its fetch token; `WOPISrc` is `WOPI_URL/wopi/files/{key}`. PutFile honours `X-COOL-WOPI-Timestamp`: when the file changed in storage since Collabora last saw it, the answer is 409 with `COOLStatusCode 1010` and Collabora asks the person whether to overwrite. A person's default engine is the user setting `engine`; `POST /sources/{id}/open` takes `engine` to override it for one open, and the answer carries `engine` plus either `api_js`+`config` (ONLYOFFICE) or `collabora: {action_url, access_token, access_token_ttl, wopi_src, edit, origin}` (the browser posts the token into an iframe).
 
 ## Drafts
 
@@ -95,7 +102,8 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | GET/PUT | `/settings` | title and Document Server (admin), the caller's own `me` settings |
 | POST | `/settings/documentserver/test` | admin: health + a conversion round trip through `CALLBACK_URL` |
 | GET/POST/PUT/DELETE | `/users` · `/users/{id}` | admin |
-| GET | `/formats` · `/system` | every type with `kind`, `edit`, `lossy`, `convertible`, `mime`, `exports` · versions and registration state |
+| POST | `/settings/collabora/test` | admin: discovery reachable, how many types |
+| GET | `/formats` · `/system` | every type with `kind`, `edit`, `lossy`, `convertible`, `mime`, `exports` · versions, engines and registration state |
 | GET | `/oo/file/{key}?t=` · POST `/oo/callback/{key}` | Document Server's side; not for people |
 | GET | `/healthz` · `/readyz` · `/metrics` | outside `/api/v1` |
 
