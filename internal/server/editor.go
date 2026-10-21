@@ -121,8 +121,10 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.Touch(ctx, u.ID, src.ID, p)
 
+	fv := view(e)
+	s.decorateReviews(ctx, u.ID, src, b, []fileView{fv})
 	common := map[string]any{"key": k.Key, "kind": string(f.Kind), "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy,
-		"exports": office.Exports(p), "file": view(e), "draft": src.Kind == "drafts", "engines": s.engines(ctx)}
+		"exports": office.Exports(p), "file": fv, "draft": src.Kind == "drafts", "engines": s.engines(ctx), "collab": s.collabInfo(ctx, u.ID)}
 	if engine == "collabora" {
 		co, err := s.collaboraOpen(ctx, k, e, f, firstNonEmpty(in.Lang, "en"), in.Dark)
 		if err != nil {

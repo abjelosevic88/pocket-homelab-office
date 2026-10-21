@@ -7,6 +7,7 @@ import { isMobileUA, isPhone, kindLabel, sourceIcon } from '../lib/format'
 import { Confirm, KindBadge, Loading, Menu, useToast } from '../components/ui'
 import { DownloadAs } from '../components/DownloadAs'
 import { SaveTo } from '../components/SaveTo'
+import { ReviewBadge, SendToCollab } from '../components/Collab'
 
 declare global {
   interface Window { DocsAPI?: { DocEditor: new (id: string, config: Record<string, unknown>) => { destroyEditor: () => void; downloadAs?: (t?: string) => void } } }
@@ -42,6 +43,7 @@ export default function Editor() {
   const [confirmCopy, setConfirmCopy] = useState(false)
   const [dl, setDl] = useState(false)
   const [saveTo, setSaveTo] = useState(false)
+  const [collab, setCollab] = useState(false)
   const [desktop, setDesktop] = useState(() => sessionStorage.getItem('po-desktop') === '1')
   const editor = useRef<{ destroyEditor: () => void } | null>(null)
   const coForm = useRef<HTMLFormElement>(null)
@@ -130,12 +132,14 @@ export default function Editor() {
           <span className="ellipsis">{name}</span>
           <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.engine === 'collabora' ? ' · Collabora' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
         </span>
+        {res?.file.review && <ReviewBadge review={res.file.review} />}
         {res?.draft && <button className="btn primary sm" onClick={() => setSaveTo(true)} title="This is a working copy in Drafts; put it into a place">Save to…</button>}
         {res && res.mode === 'view' && res.convertible && <button className="btn primary sm" onClick={() => setConfirmCopy(true)}>Edit a copy</button>}
         {res?.phone_view && <button className="btn primary sm" onClick={() => { sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }} title="The free Document Server views on phones; this opens the full desktop editor here">Edit</button>}
         <Menu button={<button className="btn ghost sm" aria-label="More">⋯</button>}>{close => <>
           <a href={`${V1}/sources/${id}/file${qs({ path })}`} onClick={close}>Download original</a>
           {res && res.exports.length > 0 && <button onClick={() => { close(); setDl(true) }}>Download as… ({res.exports.length} types)</button>}
+          {res?.collab?.available && <><hr /><button onClick={() => { close(); setCollab(true) }}>{res.file.review && !['approved', 'rejected', 'cancelled'].includes(res.file.review.status) ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…'}</button>{res.file.review && <a href={res.file.review.url} target="_blank" rel="noreferrer" onClick={close}>Open the review ↗</a>}</>}
           {res && res.mode === 'view' && res.convertible && <><hr /><button onClick={() => { close(); setConfirmCopy(true) }}>Edit a copy as .{res.editable_as}</button></>}
           {res && res.engines.length > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}</button>)}</>}
           <hr />
@@ -154,6 +158,7 @@ export default function Editor() {
           <iframe ref={coFrame} name="po-collabora" title="Collabora Online" allow="clipboard-read *; clipboard-write *; fullscreen *" />
         </> : <div id="po-editor" />}
       </div>
+      {collab && res && <SendToCollab sourceId={id!} file={res.file} beforeSend={flush} onClose={() => setCollab(false)} onSent={() => api.get<{ review: typeof res.file.review }>(`${V1}/sources/${id}/collab?path=${encodeURIComponent(path)}`).then(r => setRes(x => x ? { ...x, file: { ...x.file, review: r.review } } : x)).catch(() => {})} />}
       {saveTo && res && <SaveTo path={path} name={name} beforeSave={flush} onClose={() => setSaveTo(false)} />}
       {dl && res && <DownloadAs sourceId={id!} path={path} name={name} exports={res.exports} onClose={() => setDl(false)} />}
       {confirmCopy && res && <Confirm danger={false} action={`Make a .${res.editable_as}`} title={`Edit a copy of ${name}?`} message={`.${res.ext} files open for viewing. Pocket Office makes a .${res.editable_as} copy next to it through Document Server, and opens that for editing. The original stays as it is.`} onCancel={() => setConfirmCopy(false)} onConfirm={editCopy} />}

@@ -16,8 +16,10 @@ export type Kind = 'word' | 'cell' | 'slide' | 'pdf' | 'diagram'
 
 export interface Entry {
   path: string; name: string; is_dir: boolean; size: number; modified: string; etag?: string; file_id?: string
-  kind?: Kind; opens: boolean; edit: boolean; ext?: string; exports?: string[]
+  kind?: Kind; opens: boolean; edit: boolean; ext?: string; exports?: string[]; review?: ReviewHit | null
 }
+
+export interface ReviewHit { id: number; title: string; status: string; url: string; revisions: number; open_threads: number; open_issues: number; updated_at: string; my_role: string }
 
 export interface Format { ext: string; kind: Kind; edit: boolean; lossy?: boolean; convertible: boolean; mime: string; exports: string[] }
 
@@ -33,11 +35,11 @@ export interface OpenResult {
   engine: Engine; engines: Engine[]
   collabora?: { action_url: string; access_token: string; access_token_ttl: string; wopi_src: string; edit: boolean; origin: string }
   api_js?: string; config?: Record<string, unknown>; key: string; mode: 'edit' | 'view'; kind: Kind; ext: string; edit: boolean; convertible: boolean
-  editable_as: string; lossy?: boolean; exports: string[]; file: Entry; phone_view: boolean; draft?: boolean
+  editable_as: string; lossy?: boolean; exports: string[]; file: Entry; phone_view: boolean; draft?: boolean; collab?: { available: boolean; url?: string; error?: string }
 }
 
 export interface Settings {
-  engines: Engine[]; engine: Engine | ''
+  engines: Engine[]; engine: Engine | ''; default_engine: Engine; collab?: { available: boolean; url?: string; error?: string }
   collabora?: { configured: boolean; url: string; internal_url?: string; wopi_url?: string; from_env?: { url: string; internal_url: string; wopi_url: string } }
   title: string; admin: boolean; core: boolean; core_url: string; base_url: string; max_upload: number; me: Record<string, string>
   document_server: { configured: boolean; url: string; internal_url?: string; header?: string; secret_set?: boolean; callback_url?: string; from_env?: { url: string; internal_url: string; callback_url: string; secret_set: boolean } }

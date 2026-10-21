@@ -29,6 +29,7 @@ Settings → Document Server (stored in the database, overriding the environment
 | `CALLBACK_URL` | `CORE_APP_URL`, else `BASE_URL` | how Document Server reaches **this app**: it downloads files from `CALLBACK_URL/api/v1/oo/file/…` and posts saves to `CALLBACK_URL/api/v1/oo/callback/…`. Must be reachable from the Document Server container (`http://pocket-office:8080`, `http://host.docker.internal:8186`, or the public address). Document Server refuses private addresses unless started with `ALLOW_PRIVATE_IP_ADDRESS=true` |
 | `COLLABORA_URL` | – | optional second engine: Collabora Online as browsers reach it (`https://collabora.example.com`). Collabora must trust this app as a WOPI host: add `CALLBACK_URL`'s origin to its `aliasgroupN` (e.g. `aliasgroup2: http://pocket-office:8080`) |
 | `COLLABORA_INTERNAL_URL` | `COLLABORA_URL` | how this server fetches `hosting/discovery` |
+| `DEFAULT_ENGINE` | `onlyoffice` | the box's default editor (`onlyoffice` or `collabora`); an admin can change it in Settings → Document Server, each person under Account & API |
 | `WOPI_URL` | `BASE_URL` | how Collabora reaches this app for WOPI. Collabora lets only this address's origin embed it, so it is normally the public address (the Collabora container must resolve and reach it) |
 | `CORE_URL` | – | Pocket Core as the app reaches it (`http://pocket-core:8080`, `http://host.docker.internal:8179`) |
 | `CORE_REGISTRATION_KEY` | – | from Core → Settings. Used once; the app token Core mints is kept in `DATA_DIR/core.token` |
@@ -67,6 +68,10 @@ On phones the free (Community) Document Server offers its mobile editors for vie
 ## Collabora (WOPI)
 
 With `COLLABORA_URL` set (or the address saved in Settings → Document Server), Pocket Office is a WOPI host: `GET /wopi/files/{key}` (CheckFileInfo), `GET /wopi/files/{key}/contents` (GetFile), `POST /wopi/files/{key}/contents` (PutFile) and `POST /wopi/files/{key}` (PutRelative for *Save as*; lock calls are answered without locks). The key is the same document key the ONLYOFFICE flow uses and the `access_token` is its fetch token; `WOPISrc` is `WOPI_URL/wopi/files/{key}`. PutFile honours `X-COOL-WOPI-Timestamp`: when the file changed in storage since Collabora last saw it, the answer is 409 with `COOLStatusCode 1010` and Collabora asks the person whether to overwrite. A person's default engine is the user setting `engine`; `POST /sources/{id}/open` takes `engine` to override it for one open, and the answer carries `engine` plus either `api_js`+`config` (ONLYOFFICE) or `collabora: {action_url, access_token, access_token_ttl, wopi_src, edit, origin}` (the browser posts the token into an iframe).
+
+## Pocket Collaborator
+
+With Pocket Core, Office declares a link to Pocket Collaborator (`reviews:read`, `reviews:write`). Folder listings and the editor ask Collaborator's lookup endpoint for the files' source references and show an *In review* badge that opens the review; *Send for review…* renders the file to PDF (Document Server, else Collabora's convert-to) and posts it to Collaborator with the reference, a link back and a label. A file already in an unfinished review becomes a new revision (or a separate review on request). References: `documents:<id>` for files from Pocket Documents (the same Documents uses), `office:draft:<user>:<path>` for drafts (moved to the final reference when the draft is saved somewhere), else a hash of the file's canonical address. Endpoints: `GET /sources/{id}/collab?path=` and `POST /sources/{id}/collab/send {path, title, description, note, due_date, mode: new|revision, start}`.
 
 ## Drafts
 

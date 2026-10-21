@@ -35,7 +35,12 @@ func (s *Server) collabora(ctx context.Context) *office.Collabora {
 	return s.co
 }
 
-// engines lists what is set up, in the order the UI offers them.
+// boxEngine is the engine the box prefers (Settings, else DEFAULT_ENGINE).
+func (s *Server) boxEngine(ctx context.Context) string {
+	return firstNonEmpty(s.store.GetSetting(ctx, "default_engine"), s.cfg.DefaultEngine, "onlyoffice")
+}
+
+// engines lists what is set up, the box's default first.
 func (s *Server) engines(ctx context.Context) []string {
 	var out []string
 	if s.docServer(ctx).Configured() {
@@ -43,6 +48,12 @@ func (s *Server) engines(ctx context.Context) []string {
 	}
 	if s.collabora(ctx).Configured() {
 		out = append(out, "collabora")
+	}
+	def := s.boxEngine(ctx)
+	for i, e := range out {
+		if e == def && i > 0 {
+			out = append([]string{e}, append(out[:i:i], out[i+1:]...)...)
+		}
 	}
 	return out
 }

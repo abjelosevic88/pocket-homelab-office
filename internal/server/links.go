@@ -23,6 +23,7 @@ var linkOffers = []core.Offer{
 // linkUses: Pocket Documents is one of the places files come from.
 var linkUses = []core.Use{
 	{App: "documents", Scopes: []string{"documents:read", "documents:write"}, Reason: "Open the Word, Excel and PowerPoint files in your Pocket Documents archive, and save your edits back into it"},
+	{App: "collaborator", Scopes: []string{"reviews:read", "reviews:write"}, Reason: "Send a document for review in Pocket Collaborator (as a PDF, with a link back), and show which files are in review"},
 }
 
 // serviceUses: Nextcloud through Core, so nobody types an app password.
@@ -103,7 +104,11 @@ func (s *Server) reportModes(ctx context.Context) {
 				}
 			}
 		}
-		modes = append(modes, core.ConnMode{User: u.Email, Target: "service:nextcloud", Mode: nc}, core.ConnMode{User: u.Email, Target: "documents", Mode: docs})
+		collab := "off"
+		if s.core.Configured() {
+			collab = "core"
+		}
+		modes = append(modes, core.ConnMode{User: u.Email, Target: "service:nextcloud", Mode: nc}, core.ConnMode{User: u.Email, Target: "documents", Mode: docs}, core.ConnMode{User: u.Email, Target: "collaborator", Mode: collab})
 	}
 	c, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()

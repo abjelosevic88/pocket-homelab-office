@@ -173,6 +173,8 @@ func (s *Server) Router() http.Handler {
 			r.Post("/sources/{id}/copy", s.handleCopy)
 			r.Post("/sources/{id}/delete", s.handleDelete)
 			r.Post("/sources/{id}/open", s.handleOpen)
+			r.Get("/sources/{id}/collab", s.handleCollabStatus)
+			r.Post("/sources/{id}/collab/send", s.handleCollabSend)
 			r.Post("/sources/{id}/edit-copy", s.handleEditCopy)
 
 			r.Get("/settings", s.handleGetSettings)
@@ -300,7 +302,7 @@ func (s *Server) manifest() core.Manifest {
 		Description: "Word, Excel and PowerPoint files opened and edited in the browser with ONLYOFFICE, from Nextcloud, Pocket Documents, WebDAV or a folder on the box.",
 		Icon:        "/favicon.svg", Version: Version,
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "OFFICE",
-		Publishes: []string{"office.opened", "office.saved", "office.created"},
+		Publishes: []string{"office.opened", "office.saved", "office.created", "office.sent_for_review"},
 		Offers:    linkOffers,
 		Uses:      linkUses,
 		Services:  serviceUses,

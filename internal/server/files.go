@@ -20,10 +20,11 @@ import (
 // fileView is an entry as the UI sees it: with what can be done with it.
 type fileView struct {
 	storage.Entry
-	Kind  office.Kind `json:"kind,omitempty"`
-	Opens bool        `json:"opens"`
-	Edit  bool        `json:"edit"`
-	Ext   string      `json:"ext,omitempty"`
+	Kind   office.Kind `json:"kind,omitempty"`
+	Opens  bool        `json:"opens"`
+	Edit   bool        `json:"edit"`
+	Ext    string      `json:"ext,omitempty"`
+	Review *collabHit  `json:"review,omitempty"`
 }
 
 func view(e storage.Entry) fileView {
@@ -68,6 +69,7 @@ func (s *Server) handleListDir(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, v)
 	}
+	s.decorateReviews(r.Context(), me(r), src, b, out)
 	writeJSON(w, http.StatusOK, map[string]any{"source": src.ID, "path": dir, "entries": out, "writable": true, "tree": src.Kind != "documents"})
 }
 

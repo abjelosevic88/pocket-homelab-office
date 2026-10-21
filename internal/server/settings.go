@@ -48,6 +48,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	u := userFrom(ctx)
 	var in struct {
 		Title          *string           `json:"title"`
+		DefaultEngine  *string           `json:"default_engine"`
 		Me             map[string]string `json:"me"`
 		DocumentServer *struct {
 			URL         *string `json:"url"`
@@ -72,7 +73,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = s.store.SetUserSetting(ctx, u.ID, k, v)
 	}
-	if in.Title != nil || in.DocumentServer != nil || in.Collabora != nil {
+	if in.Title != nil || in.DocumentServer != nil || in.Collabora != nil || in.DefaultEngine != nil {
 		if !u.IsAdmin() {
 			writeErr(w, http.StatusForbidden, "only an admin can change the box settings")
 			return
@@ -80,6 +81,14 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Title != nil {
 		_ = s.store.SetSetting(ctx, "title", strings.TrimSpace(*in.Title))
+	}
+	if in.DefaultEngine != nil {
+		e := strings.ToLower(strings.TrimSpace(*in.DefaultEngine))
+		if e != "onlyoffice" && e != "collabora" {
+			writeErr(w, http.StatusBadRequest, "default_engine must be onlyoffice or collabora")
+			return
+		}
+		_ = s.store.SetSetting(ctx, "default_engine", e)
 	}
 	if d := in.DocumentServer; d != nil {
 		if d.URL != nil {

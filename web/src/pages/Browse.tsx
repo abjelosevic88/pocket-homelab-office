@@ -8,6 +8,7 @@ import { Confirm, Empty, KindBadge, Loading, Menu, Modal, Prompt, useAsync, useT
 import { NewFileButtons } from '../components/NewFile'
 import { DownloadAs } from '../components/DownloadAs'
 import { SaveTo } from '../components/SaveTo'
+import { ReviewBadge, SendToCollab } from '../components/Collab'
 import type { Format } from '../lib/types'
 
 type Sort = 'name' | 'modified' | 'size'
@@ -24,7 +25,7 @@ export default function Browse() {
   const [sort, setSort] = useState<Sort>(() => (localStorage.getItem('po-sort') as Sort) || 'name')
   const [filter, setFilter] = useState('')
   const [menu, setMenu] = useState<{ e: Entry; x: number; y: number } | null>(null)
-  const [dlg, setDlg] = useState<{ kind: 'new' | 'folder' | 'rename' | 'delete' | 'move' | 'download' | 'saveto'; e?: Entry } | null>(null)
+  const [dlg, setDlg] = useState<{ kind: 'new' | 'folder' | 'rename' | 'delete' | 'move' | 'download' | 'saveto' | 'collab'; e?: Entry } | null>(null)
   const [formats, setFormats] = useState<Record<string, Format>>({})
   useEffect(() => { api.get<Format[]>(`${V1}/formats`).then(fs => setFormats(Object.fromEntries(fs.map(f => [f.ext, f])))).catch(() => {}) }, [])
   const [progress, setProgress] = useState<number | null>(null)
@@ -109,6 +110,7 @@ export default function Browse() {
                   {e.is_dir ? <span className="folder-ico">📁</span> : <KindBadge kind={e.kind} ext={e.ext} />}
                   <span className="ellipsis">{e.name}</span>
                   {!e.is_dir && e.opens && !e.edit && <small className="badge" title="Opens for viewing; use Edit a copy to change it">view</small>}
+                  {e.review && <ReviewBadge review={e.review} small />}
                 </button></td>
                 <td className="col-mod muted nowrap">{e.modified && !e.modified.startsWith('0001') ? ago(e.modified) : ''}</td>
                 <td className="col-size muted nowrap">{e.is_dir ? '' : bytes(e.size)}</td>
@@ -123,6 +125,8 @@ export default function Browse() {
         <div className="ctx-menu" style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 320) }}>
           <button onClick={() => { open(menu.e); setMenu(null) }}>{menu.e.is_dir ? 'Open folder' : menu.e.edit ? 'Edit' : menu.e.opens ? 'View' : 'Download'}</button>
           {!menu.e.is_dir && src.kind === 'drafts' && <button onClick={() => { setDlg({ kind: 'saveto', e: menu.e }); setMenu(null) }}>Save to…</button>}
+          {!menu.e.is_dir && menu.e.opens && settings?.collab?.available && <button onClick={() => { setDlg({ kind: 'collab', e: menu.e }); setMenu(null) }}>{menu.e.review && !['approved', 'rejected', 'cancelled'].includes(menu.e.review.status) ? 'Send new revision to Collaborator…' : 'Send for review…'}</button>}
+          {!menu.e.is_dir && menu.e.review && <a href={menu.e.review.url} target="_blank" rel="noreferrer" onClick={() => setMenu(null)}>Open the review ↗</a>}
           {!menu.e.is_dir && <a href={`${V1}/sources/${id}/file${qs({ path: menu.e.path })}`} onClick={() => setMenu(null)}>Download</a>}
           {!menu.e.is_dir && menu.e.opens && menu.e.ext !== 'pdf' && <a href={`${V1}/sources/${id}/export${qs({ path: menu.e.path, to: 'pdf' })}`} onClick={() => setMenu(null)}>Download as PDF</a>}
           {!menu.e.is_dir && menu.e.opens && (formats[menu.e.ext || '']?.exports?.length || 0) > 0 && <button onClick={() => { setDlg({ kind: 'download', e: menu.e }); setMenu(null) }}>Download as…</button>}
@@ -139,6 +143,7 @@ export default function Browse() {
       {dlg?.kind === 'new' && <Modal title={`New file in ${path ? path.split('/').pop() : src.name}`} onClose={() => setDlg(null)}>
         <NewFileButtons onPick={type => { setDlg(null); act(async () => { const e = await api.post<Entry>(`${V1}/sources/${id}/new`, { path, type }); navigate(`/edit/${id}${qs({ path: e.path })}`) }) }} />
       </Modal>}
+      {dlg?.kind === 'collab' && dlg.e && <SendToCollab sourceId={id!} file={dlg.e} onClose={() => { setDlg(null); list.reload() }} />}
       {dlg?.kind === 'saveto' && dlg.e && <SaveTo path={dlg.e.path} name={dlg.e.name} onClose={() => setDlg(null)} onSaved={() => list.reload()} />}
       {dlg?.kind === 'download' && dlg.e && <DownloadAs sourceId={id!} path={dlg.e.path} name={dlg.e.name} exports={formats[dlg.e.ext || '']?.exports || []} onClose={() => setDlg(null)} />}
       {dlg?.kind === 'folder' && <Prompt title="New folder" onClose={() => setDlg(null)} action="Make" onDone={name => { setDlg(null); act(() => api.post(`${V1}/sources/${id}/mkdir`, { path, name })) }} />}

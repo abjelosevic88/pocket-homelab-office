@@ -187,6 +187,7 @@ func (s *Server) handleSaveDraft(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "saving to "+firstNonEmpty(dest.Name, defaultSourceName(dest.Kind)))
 		return
 	}
+	s.moveReviewSource(ctx, uid, drafts, db, p, dest, tb, e.Path)
 	if !in.Keep {
 		s.store.DropKeysFor(ctx, drafts.ID, p)
 		s.store.ForgetRecent(ctx, uid, drafts.ID, p)

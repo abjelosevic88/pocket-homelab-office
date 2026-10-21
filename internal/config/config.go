@@ -68,6 +68,9 @@ type Config struct {
 	// embeds Collabora from (Collabora only allows the WOPI host's origin to
 	// frame it), so it defaults to BASE_URL rather than CALLBACK_URL.
 	WOPIURL string
+	// DefaultEngine is the box's default editor: onlyoffice | collabora
+	// (an admin can change it in Settings; each person can override it).
+	DefaultEngine string
 
 	// FolderRoots are server folders people may attach as a source
 	// (comma separated absolute paths). Empty = none.
@@ -152,6 +155,7 @@ func Load() (*Config, error) {
 		CollaboraURL:          strings.TrimRight(env("COLLABORA_URL", ""), "/"),
 		CollaboraInternalURL:  strings.TrimRight(env("COLLABORA_INTERNAL_URL", ""), "/"),
 		WOPIURL:               strings.TrimRight(env("WOPI_URL", ""), "/"),
+		DefaultEngine:         strings.ToLower(env("DEFAULT_ENGINE", "onlyoffice")),
 	}
 	if c.CoreAppURL == "" {
 		c.CoreAppURL = c.BaseURL

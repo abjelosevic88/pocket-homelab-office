@@ -165,8 +165,13 @@ function ServerTab() {
     } catch (e) { toast((e as Error).message, 'err') } finally { setBusy(false) }
   }
   const test = async () => { setBusy(true); setRes(null); try { setRes(await api.post<Record<string, unknown>>(`${V1}/settings/documentserver/test`)) } catch (e) { setRes({ error: (e as Error).message }) } finally { setBusy(false) } }
+  const setDefault = async (e: string) => { try { await api.put(`${V1}/settings`, { default_engine: e }); await reloadSettings(); toast(`${e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'} is the default for everyone`) } catch (err) { toast((err as Error).message, 'err') } }
   return (
     <div className="grid" style={{ gap: 16 }}>
+      {settings && settings.engines.length > 1 && <Card title="Default engine for everyone">
+        <p className="muted small">New people and anyone who has not picked an engine under Account & API get this one. It is also listed first.</p>
+        <Segmented value={settings.default_engine} onChange={setDefault} options={settings.engines.map(e => ({ value: e, label: e === 'collabora' ? 'Collabora Online' : 'ONLYOFFICE' }))} />
+      </Card>}
       <Card title="ONLYOFFICE Document Server">
         <p className="muted small">Pocket Office does not render documents itself: an <a href="https://github.com/ONLYOFFICE/DocumentServer" target="_blank" rel="noreferrer">ONLYOFFICE Document Server</a> does, in the browser. Point this at one (the same one Nextcloud uses is fine). These settings override the <code>ONLYOFFICE_*</code> environment{ds?.from_env?.url ? ` (currently ${ds.from_env.url})` : ''}.</p>
         <form onSubmit={save} className="grid mt" style={{ gap: 14 }}>

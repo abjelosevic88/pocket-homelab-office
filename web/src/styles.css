@@ -298,3 +298,11 @@ input:disabled { opacity: .6; }
 
 .two-col > .span-2 { grid-column: 1 / -1; }
 iframe[name="po-collabora"] { background: #fff; }
+
+/* ---- review badge (Pocket Collaborator) ---- */
+.review-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); white-space: nowrap; margin-left: 8px; }
+.review-badge:hover { border-color: #c026d3; text-decoration: none; }
+.review-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #c026d3; }
+.review-badge.in_review .dot { background: #c026d3; } .review-badge.changes_requested .dot { background: var(--warning); } .review-badge.approved .dot { background: var(--success); } .review-badge.rejected .dot, .review-badge.cancelled .dot { background: var(--muted); } .review-badge.draft .dot { background: var(--muted); }
+.review-badge.sm { font-size: 10.5px; padding: 1px 7px; }
+.two-col.tight { gap: 10px; }
