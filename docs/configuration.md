@@ -57,9 +57,13 @@ Keep `DATA_DIR` at mode 0700. Files in Nextcloud, WebDAV, Pocket Documents or a 
 3. While people edit, Document Server keeps the document; on every autosave interval and when the last editor closes it posts to `CALLBACK_URL/api/v1/oo/callback/<key>` (JWT in the `AuthorizationJwt` header). The app downloads the result and writes it back where the file came from, with an `If-Match` on the ETag it read: if the file changed outside meanwhile, the save lands beside it as `name (conflict <date>).docx` instead of overwriting.
 4. A closed document drops its key, so the next open reads the file fresh.
 
-View-only types (`.doc`, `.xls`, `.ppt`, `.odt`… and anything else Document Server only converts) open in the viewer; **Edit a copy** runs them through Document Server's conversion service into `.docx`/`.xlsx`/`.pptx` next to the original. **Download as…** uses the same service for PDF and the other export types.
+The format table (`internal/office/templates/onlyoffice-docs-formats.json`) is the manifest Document Server ships: a type with `edit` or `lossy-edit` opens in the editor and saves back as itself; a type with only `view` + `auto-convert` (`.doc`, `.xls`, `.ppt`, `.pages`…) opens in the viewer and **Edit a copy** converts it into the family's editable type next to the original; Visio types open in the diagram viewer. **Download as…** offers exactly that type's `convert` list (PDF first), and `/export?to=` refuses anything else. Replace the JSON with the one from a newer Document Server (`/var/www/onlyoffice/documentserver/document-formats/`) to pick up new types.
 
 On phones the free (Community) Document Server offers its mobile editors for viewing only, so files open in the viewer there; **Edit** in the top bar opens the full desktop editor on the phone instead.
+
+## Drafts
+
+Every person has a **Drafts** place (`DATA_DIR/drafts/<user id>/`). `POST /api/v1/drafts` (multipart `file`) puts dropped or chosen files there and the UI opens the first one at once; Document Server autosaves into the draft like into any other place. `POST /api/v1/drafts/save {path, source_id, dir, name, keep, overwrite}` first asks Document Server to force-save the document if it is open (the command service, waiting up to 10 s for the callback), then copies the file into the chosen place and removes the draft unless `keep` is set.
 
 ## API
 
@@ -72,17 +76,18 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | POST | `/auth/login` · `/auth/setup` · `/auth/logout` | password paths |
 | GET/PUT | `/auth/me` | the caller; PUT `{name, current_password, new_password}` |
 | GET/POST/DELETE | `/auth/tokens` · `/auth/tokens/{id}` | API tokens (plaintext shown once) |
-| GET | `/sources` | the caller's places: `{id, kind, name, where, writable, tree, …}` |
+| GET | `/sources` | the caller's places: `{id, kind, name, where, writable, tree, …}`; `builtin` and `drafts` always exist |
+| POST | `/drafts` · `/drafts/save` | working copies, see above |
 | POST/PUT/DELETE | `/sources` · `/sources/{id}` | `{kind: builtin\|folder\|webdav\|nextcloud\|documents, name, url, username, secret, folder, via_core}`; a new place is tested before it is kept |
 | GET | `/sources/options` | what can be added here (`folder_roots`, what Core knows: `core_nextcloud`, `core_documents`) |
 | POST | `/sources/{id}/test` | reads the root: `{where, files, folders, ms}` |
 | GET | `/sources/{id}/ls?path=&all=1` | one folder: `{entries:[{path, name, is_dir, size, modified, etag, kind, opens, edit, ext}], writable, tree}`; without `all` only files Document Server opens are listed |
 | GET | `/sources/{id}/file?path=&inline=1` | download as is |
-| GET | `/sources/{id}/export?path=&to=pdf` | download converted (`pdf`, `docx`, `odt`, `xlsx`, `ods`, `csv`, `pptx`, `odp`, `rtf`, `txt`, `epub`) |
+| GET | `/sources/{id}/export?path=&to=pdf` | download converted; `to` must be in the file's `exports` (see `/formats`), e.g. `pdf`, `pdfa`, `docx`, `odt`, `html`, `png` |
 | POST | `/sources/{id}/upload?path=&overwrite=1` | multipart `file` fields; `{saved:[entry], failed:[{file, error}]}` |
 | POST | `/sources/{id}/new` | `{path, name, type: docx\|xlsx\|pptx}` → entry (a taken name gets ` (2)`) |
 | POST | `/sources/{id}/mkdir` · `/rename` · `/copy` · `/delete` | `{path, name}` · `{from, name\|to}` · `{from, to?}` · `{path}` |
-| POST | `/sources/{id}/open` | `{path, mobile, desktop, dark, lang}` → `{api_js, config (signed), key, mode, kind, ext, edit, convertible, editable_as, exports, file, phone_view}` |
+| POST | `/sources/{id}/open` | `{path, mobile, desktop, dark, lang}` → `{api_js, config (signed), key, mode, kind, ext, edit, lossy, convertible, editable_as, exports, file, phone_view}` |
 | POST | `/sources/{id}/edit-copy` | `{path, to?}` → the editable copy's entry |
 | GET | `/recent` · DELETE `/recent?source=&path=` | lately opened files |
 | GET | `/search?q=` | a name across every place (folder trees walked, at most a few thousand entries each) |
@@ -90,7 +95,7 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | GET/PUT | `/settings` | title and Document Server (admin), the caller's own `me` settings |
 | POST | `/settings/documentserver/test` | admin: health + a conversion round trip through `CALLBACK_URL` |
 | GET/POST/PUT/DELETE | `/users` · `/users/{id}` | admin |
-| GET | `/formats` · `/system` | known file types · versions and registration state |
+| GET | `/formats` · `/system` | every type with `kind`, `edit`, `lossy`, `convertible`, `mime`, `exports` · versions and registration state |
 | GET | `/oo/file/{key}?t=` · POST `/oo/callback/{key}` | Document Server's side; not for people |
 | GET | `/healthz` · `/readyz` · `/metrics` | outside `/api/v1` |
 

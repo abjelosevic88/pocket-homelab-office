@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, qs, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
@@ -6,6 +6,7 @@ import type { Entry, Recent } from '../lib/types'
 import { ago, sourceIcon, sourceLabel } from '../lib/format'
 import { Card, Empty, KindBadge, Loading, PageHeader, useAsync, useToast } from '../components/ui'
 import { NewFileButtons } from '../components/NewFile'
+import { useDraftDrop } from '../components/DropZone'
 
 export default function Home() {
   const { sources, settings, user } = useApp()
@@ -13,6 +14,8 @@ export default function Home() {
   const { toast } = useToast()
   const recent = useAsync(() => api.get<Recent[]>(`${V1}/recent`), [])
   const [busy, setBusy] = useState(false)
+  const { openFiles, busy: opening } = useDraftDrop()
+  const fileInput = useRef<HTMLInputElement>(null)
   const builtin = sources.find(s => s.kind === 'builtin')
   const ds = settings?.document_server
 
@@ -32,6 +35,11 @@ export default function Home() {
 
       <Card title="Start something new" className="mb">
         <NewFileButtons onPick={create} busy={busy} />
+        <div className="row mt" style={{ flexWrap: 'wrap' }}>
+          <button className="btn" disabled={opening} onClick={() => fileInput.current?.click()}>{opening ? 'Opening…' : '⇧ Open a file from this device'}</button>
+          <span className="muted small">…or drop one anywhere on this page. It opens right away as a working copy in <b>Drafts</b>; <b>Save to…</b> puts it into a place when you are done.</span>
+          <input ref={fileInput} type="file" multiple hidden onChange={e => { if (e.target.files) openFiles(e.target.files); e.target.value = '' }} />
+        </div>
         <p className="muted small mt-s">New files land in <b>{builtin?.name || 'My files'}</b>; move or copy them anywhere later, or start one inside any place.</p>
       </Card>
 

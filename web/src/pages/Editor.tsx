@@ -5,6 +5,8 @@ import { useApp } from '../lib/app-context'
 import type { Entry, OpenResult } from '../lib/types'
 import { isMobileUA, isPhone, kindLabel, sourceIcon } from '../lib/format'
 import { Confirm, KindBadge, Loading, Menu, useToast } from '../components/ui'
+import { DownloadAs } from '../components/DownloadAs'
+import { SaveTo } from '../components/SaveTo'
 
 declare global {
   interface Window { DocsAPI?: { DocEditor: new (id: string, config: Record<string, unknown>) => { destroyEditor: () => void; downloadAs?: (t?: string) => void } } }
@@ -37,6 +39,8 @@ export default function Editor() {
   const [err, setErr] = useState('')
   const [state, setState] = useState<'loading' | 'ready' | 'saving' | 'error'>('loading')
   const [confirmCopy, setConfirmCopy] = useState(false)
+  const [dl, setDl] = useState(false)
+  const [saveTo, setSaveTo] = useState(false)
   const [desktop, setDesktop] = useState(() => sessionStorage.getItem('po-desktop') === '1')
   const editor = useRef<{ destroyEditor: () => void } | null>(null)
   const src = sources.find(s => String(s.id) === id)
@@ -81,13 +85,14 @@ export default function Editor() {
         <KindBadge kind={res?.kind} ext={res?.ext || path.split('.').pop()} />
         <span className="editor-title grow">
           <span className="ellipsis">{name}</span>
-          <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
+          <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
         </span>
+        {res?.draft && <button className="btn primary sm" onClick={() => setSaveTo(true)} title="This is a working copy in Drafts; put it into a place">Save to…</button>}
         {res && res.mode === 'view' && res.convertible && <button className="btn primary sm" onClick={() => setConfirmCopy(true)}>Edit a copy</button>}
         {res?.phone_view && <button className="btn primary sm" onClick={() => { sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }} title="The free Document Server views on phones; this opens the full desktop editor here">Edit</button>}
         <Menu button={<button className="btn ghost sm" aria-label="More">⋯</button>}>{close => <>
           <a href={`${V1}/sources/${id}/file${qs({ path })}`} onClick={close}>Download original</a>
-          {res?.exports.map(t => <a key={t} href={`${V1}/sources/${id}/export${qs({ path, to: t })}`} onClick={close}>Download as .{t}</a>)}
+          {res && res.exports.length > 0 && <button onClick={() => { close(); setDl(true) }}>Download as… ({res.exports.length} types)</button>}
           {res && res.mode === 'view' && res.convertible && <><hr /><button onClick={() => { close(); setConfirmCopy(true) }}>Edit a copy as .{res.editable_as}</button></>}
           <hr />
           {isMobileUA() && (desktop ? <button onClick={() => { close(); sessionStorage.removeItem('po-desktop'); setDesktop(false) }}>Back to the phone viewer</button> : <button onClick={() => { close(); sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }}>Open the desktop editor</button>)}
@@ -99,6 +104,8 @@ export default function Editor() {
         {err && <div className="editor-overlay"><div className="callout danger" style={{ maxWidth: 520 }}><b>Could not open {name}</b><br />{err}<div className="row mt"><button className="btn" onClick={() => location.reload()}>Try again</button><Link className="btn" to={backTo(id!, path)}>Back to files</Link></div></div></div>}
         <div id="po-editor" />
       </div>
+      {saveTo && res && <SaveTo path={path} name={name} onClose={() => setSaveTo(false)} />}
+      {dl && res && <DownloadAs sourceId={id!} path={path} name={name} exports={res.exports} onClose={() => setDl(false)} />}
       {confirmCopy && res && <Confirm danger={false} action={`Make a .${res.editable_as}`} title={`Edit a copy of ${name}?`} message={`.${res.ext} files open for viewing. Pocket Office makes a .${res.editable_as} copy next to it through Document Server, and opens that for editing. The original stays as it is.`} onCancel={() => setConfirmCopy(false)} onConfirm={editCopy} />}
     </div>
   )

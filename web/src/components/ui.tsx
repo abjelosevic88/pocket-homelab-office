@@ -136,6 +136,6 @@ export function useDebounce<T>(value: T, ms = 300): T {
 /** A file-type badge: W / X / P / PDF in the family's colour. */
 export function KindBadge({ kind, ext, size = '' }: { kind?: string; ext?: string; size?: '' | 'lg' }) {
   const k = kind || 'other'
-  const letter = k === 'word' ? 'W' : k === 'cell' ? 'X' : k === 'slide' ? 'P' : k === 'pdf' ? 'PDF' : (ext || '?').slice(0, 3).toUpperCase()
+  const letter = k === 'word' ? 'W' : k === 'cell' ? 'X' : k === 'slide' ? 'P' : k === 'pdf' ? 'PDF' : k === 'diagram' ? 'V' : (ext || '?').slice(0, 3).toUpperCase()
   return <span className={`kind-badge ${k} ${size}`} title={ext ? '.' + ext : ''}>{letter}</span>
 }

@@ -57,8 +57,8 @@ function SourcesTab() {
               <div className="integration-text"><b>{s.name}</b><br /><span className="muted small">{sourceLabel[s.kind]} · {s.where}</span></div>
               <div className="integration-actions">
                 <button className="btn sm" disabled={testing === s.id} onClick={() => test(s)}>{testing === s.id ? 'Testing…' : 'Test'}</button>
-                {s.kind !== 'builtin' && <button className="btn sm" onClick={() => setEdit({ ...s, secret: '' })}>Edit</button>}
-                {s.kind !== 'builtin' && <button className="btn ghost sm danger-text" onClick={() => setDel(s)}>Remove</button>}
+                {s.kind !== 'builtin' && s.kind !== 'drafts' && <button className="btn sm" onClick={() => setEdit({ ...s, secret: '' })}>Edit</button>}
+                {s.kind !== 'builtin' && s.kind !== 'drafts' && <button className="btn ghost sm danger-text" onClick={() => setDel(s)}>Remove</button>}
               </div>
             </div>
             {result[s.id] && <div className={`integration-result small ${result[s.id].startsWith('✓') ? 'ok' : 'bad'}`}>{result[s.id]}</div>}

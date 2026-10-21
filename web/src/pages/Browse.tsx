@@ -6,6 +6,9 @@ import type { Entry, Listing } from '../lib/types'
 import { ago, bytes, isPhone, sourceIcon, sourceLabel, stem } from '../lib/format'
 import { Confirm, Empty, KindBadge, Loading, Menu, Modal, Prompt, useAsync, useToast } from '../components/ui'
 import { NewFileButtons } from '../components/NewFile'
+import { DownloadAs } from '../components/DownloadAs'
+import { SaveTo } from '../components/SaveTo'
+import type { Format } from '../lib/types'
 
 type Sort = 'name' | 'modified' | 'size'
 
@@ -21,7 +24,9 @@ export default function Browse() {
   const [sort, setSort] = useState<Sort>(() => (localStorage.getItem('po-sort') as Sort) || 'name')
   const [filter, setFilter] = useState('')
   const [menu, setMenu] = useState<{ e: Entry; x: number; y: number } | null>(null)
-  const [dlg, setDlg] = useState<{ kind: 'new' | 'folder' | 'rename' | 'delete' | 'move'; e?: Entry } | null>(null)
+  const [dlg, setDlg] = useState<{ kind: 'new' | 'folder' | 'rename' | 'delete' | 'move' | 'download' | 'saveto'; e?: Entry } | null>(null)
+  const [formats, setFormats] = useState<Record<string, Format>>({})
+  useEffect(() => { api.get<Format[]>(`${V1}/formats`).then(fs => setFormats(Object.fromEntries(fs.map(f => [f.ext, f])))).catch(() => {}) }, [])
   const [progress, setProgress] = useState<number | null>(null)
   const [drag, setDrag] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -85,6 +90,7 @@ export default function Browse() {
           </>}
         </div>
       </div>
+      {src.kind === 'drafts' && <div className="callout mb small">📝 Working copies: files you drop or open from your device live here until you <b>Save to…</b> a place (right-click a file, or the button while editing). Edits are kept meanwhile.</div>}
       {progress !== null && <div className="bar lg mb"><span className="fill" style={{ width: `${progress}%` }} /></div>}
       {list.loading && !list.data && <Loading text={`Reading ${src.name}…`} />}
       {list.error && <div className="callout danger">{list.error} <button className="btn sm" onClick={list.reload}>Try again</button></div>}
@@ -116,8 +122,10 @@ export default function Browse() {
       {menu && <><div className="ctx-scrim" onClick={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null) }} />
         <div className="ctx-menu" style={{ left: Math.min(menu.x, window.innerWidth - 230), top: Math.min(menu.y, window.innerHeight - 320) }}>
           <button onClick={() => { open(menu.e); setMenu(null) }}>{menu.e.is_dir ? 'Open folder' : menu.e.edit ? 'Edit' : menu.e.opens ? 'View' : 'Download'}</button>
+          {!menu.e.is_dir && src.kind === 'drafts' && <button onClick={() => { setDlg({ kind: 'saveto', e: menu.e }); setMenu(null) }}>Save to…</button>}
           {!menu.e.is_dir && <a href={`${V1}/sources/${id}/file${qs({ path: menu.e.path })}`} onClick={() => setMenu(null)}>Download</a>}
           {!menu.e.is_dir && menu.e.opens && menu.e.ext !== 'pdf' && <a href={`${V1}/sources/${id}/export${qs({ path: menu.e.path, to: 'pdf' })}`} onClick={() => setMenu(null)}>Download as PDF</a>}
+          {!menu.e.is_dir && menu.e.opens && (formats[menu.e.ext || '']?.exports?.length || 0) > 0 && <button onClick={() => { setDlg({ kind: 'download', e: menu.e }); setMenu(null) }}>Download as…</button>}
           {!menu.e.is_dir && menu.e.opens && !menu.e.edit && <button onClick={() => { const e = menu.e; setMenu(null); act(async () => { const n = await api.post<Entry>(`${V1}/sources/${id}/edit-copy`, { path: e.path }); navigate(`/edit/${id}${qs({ path: n.path })}`) }) }}>Edit a copy…</button>}
           {list.data?.writable && <>
             <hr />
@@ -131,6 +139,8 @@ export default function Browse() {
       {dlg?.kind === 'new' && <Modal title={`New file in ${path ? path.split('/').pop() : src.name}`} onClose={() => setDlg(null)}>
         <NewFileButtons onPick={type => { setDlg(null); act(async () => { const e = await api.post<Entry>(`${V1}/sources/${id}/new`, { path, type }); navigate(`/edit/${id}${qs({ path: e.path })}`) }) }} />
       </Modal>}
+      {dlg?.kind === 'saveto' && dlg.e && <SaveTo path={dlg.e.path} name={dlg.e.name} onClose={() => setDlg(null)} onSaved={() => list.reload()} />}
+      {dlg?.kind === 'download' && dlg.e && <DownloadAs sourceId={id!} path={dlg.e.path} name={dlg.e.name} exports={formats[dlg.e.ext || '']?.exports || []} onClose={() => setDlg(null)} />}
       {dlg?.kind === 'folder' && <Prompt title="New folder" onClose={() => setDlg(null)} action="Make" onDone={name => { setDlg(null); act(() => api.post(`${V1}/sources/${id}/mkdir`, { path, name })) }} />}
       {dlg?.kind === 'rename' && dlg.e && <Prompt title={`Rename “${dlg.e.name}”`} initial={dlg.e.name} selectStem action="Rename" onClose={() => setDlg(null)} onDone={name => { const e = dlg.e!; setDlg(null); if (name === e.name) return; if (!e.is_dir && stem(name) === name && e.ext) name += '.' + e.ext; act(() => api.post(`${V1}/sources/${id}/rename`, { from: e.path, name })) }} />}
       {dlg?.kind === 'move' && dlg.e && <Prompt title={`Move “${dlg.e.name}” to`} label="Folder path (empty = top level)" initial={path} action="Move" onClose={() => setDlg(null)} onDone={to => { const e = dlg.e!; setDlg(null); act(() => api.post(`${V1}/sources/${id}/rename`, { from: e.path, to: (to.replace(/^\/+|\/+$/g, '') ? to.replace(/^\/+|\/+$/g, '') + '/' : '') + e.name }), 'Moved') }} />}

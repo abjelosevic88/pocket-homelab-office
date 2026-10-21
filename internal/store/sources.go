@@ -10,7 +10,7 @@ import (
 type Source struct {
 	ID        int64  `json:"id"`
 	UserID    int64  `json:"-"`
-	Kind      string `json:"kind"` // builtin | folder | webdav | nextcloud | documents
+	Kind      string `json:"kind"` // builtin | drafts | folder | webdav | nextcloud | documents
 	Name      string `json:"name"`
 	URL       string `json:"url"`
 	Username  string `json:"username"`
@@ -121,6 +121,33 @@ func (s *Store) BuiltinSource(ctx context.Context, userID int64) (*Source, error
 		return nil, err
 	}
 	res, err := s.DB.ExecContext(ctx, `INSERT INTO sources (user_id, kind, name, position) VALUES (?, 'builtin', 'My files', 0)`, userID)
+	if err != nil {
+		return nil, err
+	}
+	src.ID, _ = res.LastInsertId()
+	src.CreatedAt = Now()
+	return src, nil
+}
+
+// DraftsSource returns the person's drafts place (working copies of
+// uploaded or dropped files until they are saved somewhere), making it when missing.
+func (s *Store) DraftsSource(ctx context.Context, userID int64) (*Source, error) {
+	src, err := scanSource(s.DB.QueryRowContext(ctx, `SELECT `+sourceCols+` FROM sources WHERE user_id = ? AND kind = 'drafts' ORDER BY id LIMIT 1`, userID))
+	if err == nil {
+		return src, nil
+	}
+	if err != ErrNotFound {
+		return nil, err
+	}
+	if _, err := s.BuiltinSource(ctx, userID); err != nil {
+		return nil, err
+	}
+	// right after the built-in place
+	if _, err := s.DB.ExecContext(ctx, `UPDATE sources SET position = position + 1 WHERE user_id = ? AND kind <> 'builtin'`, userID); err != nil {
+		return nil, err
+	}
+	src = &Source{UserID: userID, Kind: "drafts", Name: "Drafts", Position: 1}
+	res, err := s.DB.ExecContext(ctx, `INSERT INTO sources (user_id, kind, name, position) VALUES (?, 'drafts', 'Drafts', 1)`, userID)
 	if err != nil {
 		return nil, err
 	}

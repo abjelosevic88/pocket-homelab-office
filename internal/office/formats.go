@@ -1,82 +1,90 @@
 package office
 
 import (
+	_ "embed"
+	"encoding/json"
 	"path"
+	"sort"
 	"strings"
 )
 
-// Kind is Document Server's editor family for a file type.
+// Kind is Document Server's editor family for a file type (its documentType).
 type Kind string
 
 const (
-	Word  Kind = "word"
-	Cell  Kind = "cell"
-	Slide Kind = "slide"
-	PDF   Kind = "pdf"
+	Word    Kind = "word"
+	Cell    Kind = "cell"
+	Slide   Kind = "slide"
+	PDF     Kind = "pdf"
+	Diagram Kind = "diagram" // Visio, view only
 )
 
-// Format is what Pocket Office knows about one file extension.
+// Format is what Pocket Office knows about one file extension. It comes from
+// the format manifest Document Server ships (onlyoffice-docs-formats.json),
+// so what opens, what edits and what converts is exactly what the engine says.
 type Format struct {
 	Ext  string `json:"ext"`
 	Kind Kind   `json:"kind"`
-	// Edit means Document Server edits the format natively and saves it back
-	// as the same type; without it the file is opened for viewing.
-	Edit bool `json:"edit"`
+	// Edit means Document Server edits the format and saves it back as the
+	// same type ("lossy" when the type cannot hold everything the editor can,
+	// e.g. txt, rtf, odt); without it the file opens for viewing.
+	Edit  bool `json:"edit"`
+	Lossy bool `json:"lossy,omitempty"`
 	// Convertible formats open for viewing and can be turned into the
 	// family's editable type ("Edit a copy as .docx").
 	Convertible bool   `json:"convertible"`
 	Mime        string `json:"mime"`
+	// Exports are the types the conversion service turns this one into.
+	Exports []string `json:"exports"`
 }
+
+//go:embed templates/onlyoffice-docs-formats.json
+var manifest []byte
 
 var formats = map[string]Format{}
 
 func init() {
-	add := func(kind Kind, edit, conv bool, mime string, exts ...string) {
-		for _, e := range exts {
-			formats[e] = Format{Ext: e, Kind: kind, Edit: edit, Convertible: conv, Mime: mime}
-		}
+	var entries []struct {
+		Name    string   `json:"name"`
+		Type    string   `json:"type"`
+		Actions []string `json:"actions"`
+		Convert []string `json:"convert"`
+		Mime    []string `json:"mime"`
 	}
-	// text documents
-	add(Word, true, false, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx")
-	add(Word, true, false, "application/vnd.ms-word.document.macroenabled.12", "docm")
-	add(Word, true, false, "application/vnd.openxmlformats-officedocument.wordprocessingml.template", "dotx")
-	add(Word, true, false, "application/vnd.oasis.opendocument.text", "odt")
-	add(Word, true, false, "application/vnd.oasis.opendocument.text-template", "ott")
-	add(Word, true, false, "application/rtf", "rtf")
-	add(Word, true, false, "text/plain", "txt")
-	add(Word, true, false, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docxf", "oform")
-	add(Word, false, true, "application/msword", "doc", "dot")
-	add(Word, false, true, "application/epub+zip", "epub")
-	add(Word, false, true, "text/html", "html", "htm", "mht")
-	add(Word, false, true, "application/x-fictionbook+xml", "fb2")
-	add(Word, false, true, "application/vnd.oasis.opendocument.text-flat-xml", "fodt")
-	add(Word, false, true, "application/oxps", "xps", "oxps")
-	add(Word, false, true, "image/vnd.djvu", "djvu")
-	add(Word, false, true, "text/markdown", "md")
-	add(Word, false, true, "application/x-iwork-pages-sffpages", "pages")
-	// spreadsheets
-	add(Cell, true, false, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx")
-	add(Cell, true, false, "application/vnd.ms-excel.sheet.macroenabled.12", "xlsm")
-	add(Cell, true, false, "application/vnd.openxmlformats-officedocument.spreadsheetml.template", "xltx")
-	add(Cell, true, false, "application/vnd.oasis.opendocument.spreadsheet", "ods")
-	add(Cell, true, false, "application/vnd.oasis.opendocument.spreadsheet-template", "ots")
-	add(Cell, true, false, "text/csv", "csv")
-	add(Cell, false, true, "application/vnd.ms-excel", "xls", "xlt")
-	add(Cell, false, true, "application/vnd.ms-excel.sheet.binary.macroenabled.12", "xlsb")
-	add(Cell, false, true, "application/vnd.oasis.opendocument.spreadsheet-flat-xml", "fods")
-	add(Cell, false, true, "application/x-iwork-numbers-sffnumbers", "numbers")
-	// presentations
-	add(Slide, true, false, "application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx")
-	add(Slide, true, false, "application/vnd.ms-powerpoint.presentation.macroenabled.12", "pptm")
-	add(Slide, true, false, "application/vnd.openxmlformats-officedocument.presentationml.template", "potx")
-	add(Slide, true, false, "application/vnd.openxmlformats-officedocument.presentationml.slideshow", "ppsx")
-	add(Slide, true, false, "application/vnd.oasis.opendocument.presentation", "odp")
-	add(Slide, true, false, "application/vnd.oasis.opendocument.presentation-template", "otp")
-	add(Slide, false, true, "application/vnd.ms-powerpoint", "ppt", "pps", "pot")
-	add(Slide, false, true, "application/vnd.oasis.opendocument.presentation-flat-xml", "fodp")
-	add(Slide, false, true, "application/x-iwork-keynote-sffkey", "key")
-	// PDF: its own editor since Document Server 8 (forms, comments, drawing)
-	add(PDF, true, false, "application/pdf", "pdf")
+	if err := json.Unmarshal(manifest, &entries); err != nil {
+		panic("office: bad format manifest: " + err.Error())
+	}
+	has := func(list []string, v string) bool {
+		for _, x := range list {
+			if x == v {
+				return true
+			}
+		}
+		return false
+	}
+	for _, e := range entries {
+		if e.Type == "" || !has(e.Actions, "view") {
+			continue // outputs only (png, pdfa, zip…)
+		}
+		f := Format{Ext: e.Name, Kind: Kind(e.Type), Edit: has(e.Actions, "edit") || has(e.Actions, "lossy-edit"), Lossy: has(e.Actions, "lossy-edit") && !has(e.Actions, "edit")}
+		if len(e.Mime) > 0 {
+			f.Mime = e.Mime[0]
+		} else {
+			f.Mime = "application/octet-stream"
+		}
+		editable := EditableExt(f.Kind)
+		f.Convertible = !f.Edit && editable != "" && has(e.Convert, editable)
+		// pdf first, then the rest as the manifest lists them, no duplicates
+		seen := map[string]bool{}
+		for _, c := range append([]string{"pdf"}, e.Convert...) {
+			if c == e.Name || seen[c] || !has(e.Convert, c) {
+				continue
+			}
+			seen[c] = true
+			f.Exports = append(f.Exports, c)
+		}
+		formats[e.Name] = f
+	}
 }
 
 // Ext is a file's lower-case extension without the dot.
@@ -96,9 +104,12 @@ func Opens(name string) bool {
 	return ok
 }
 
-// EditableExt is the type a convertible file is edited as (doc → docx).
+// EditableExt is the type a convertible file is edited as (doc → docx);
+// "" for families that have no editable type (diagrams).
 func EditableExt(kind Kind) string {
 	switch kind {
+	case Word:
+		return "docx"
 	case Cell:
 		return "xlsx"
 	case Slide:
@@ -106,7 +117,7 @@ func EditableExt(kind Kind) string {
 	case PDF:
 		return "pdf"
 	}
-	return "docx"
+	return ""
 }
 
 // Mime returns the content type for a file name.
@@ -114,28 +125,47 @@ func Mime(name string) string {
 	if f, ok := Lookup(name); ok {
 		return f.Mime
 	}
+	switch Ext(name) {
+	case "pdfa":
+		return "application/pdf"
+	case "png":
+		return "image/png"
+	case "jpg", "jpeg":
+		return "image/jpeg"
+	case "bmp":
+		return "image/bmp"
+	case "gif":
+		return "image/gif"
+	case "zip":
+		return "application/zip"
+	}
 	return "application/octet-stream"
 }
 
-// ExportTargets lists what a family can be downloaded as through the
-// conversion service.
-func ExportTargets(kind Kind) []string {
-	switch kind {
-	case Cell:
-		return []string{"pdf", "xlsx", "ods", "csv"}
-	case Slide:
-		return []string{"pdf", "pptx", "odp"}
-	case PDF:
-		return []string{"docx"}
+// Exports lists what a file can be downloaded as through the conversion service.
+func Exports(name string) []string {
+	if f, ok := Lookup(name); ok {
+		return append([]string(nil), f.Exports...)
 	}
-	return []string{"pdf", "docx", "odt", "rtf", "txt", "epub"}
+	return nil
 }
 
-// All returns every known format (for the UI's filters and "New" menu).
+// CanExport reports whether the conversion service turns the file into the type.
+func CanExport(name, to string) bool {
+	for _, e := range Exports(name) {
+		if e == to {
+			return true
+		}
+	}
+	return false
+}
+
+// All returns every known format, sorted by extension (for the UI).
 func All() []Format {
 	out := make([]Format, 0, len(formats))
 	for _, f := range formats {
 		out = append(out, f)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Ext < out[j].Ext })
 	return out
 }

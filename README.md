@@ -20,7 +20,7 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
   </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/editor-xlsx.png" alt="A spreadsheet open in the editor"></td>
-    <td width="50%"><img src="docs/screenshots/settings.png" alt="Places: Nextcloud, Pocket Documents, WebDAV, a folder on the box"></td>
+    <td width="50%"><img src="docs/screenshots/draft-editor.png" alt="A dropped file open as a working copy, Save to… a place"></td>
   </tr>
 </table>
 <p align="center">
@@ -38,16 +38,22 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 - Browse folders, upload (drag and drop too), new folders, rename, move, duplicate, delete; ⌘K finds a file by
   name across every place; recent files on the home page.
 - **New document / spreadsheet / presentation** from blank templates, in any place.
+- **Drop a file anywhere** (or *Open a file from this device*) and it opens at once as a working copy in
+  **Drafts**, autosaved there while you edit; **Save to…** force-saves and moves it into the place and folder you
+  pick. Nothing touches your Nextcloud or archive until you say so.
 
 **Editing with ONLYOFFICE**
-- `.docx`, `.xlsx`, `.pptx` (and `.odt`, `.ods`, `.odp`, `.rtf`, `.txt`, `.csv`, macro and template types)
-  open in the full editors; `.pdf` in the PDF editor; `.doc`, `.xls`, `.ppt`, `.epub`, `.pages`, `.numbers`,
-  `.key` and friends open in the viewer with **Edit a copy** one click away.
+- What opens, edits and converts comes straight from Document Server's own format manifest (86 types):
+  `.docx`, `.xlsx`, `.pptx` with their macro-enabled and template variants (`.docm`, `.dotm`, `.xlsm`, `.xltm`,
+  `.pptm`, `.potm`, `.ppsm`…), ODF, `.rtf`, `.txt`, `.csv`, `.html`, `.epub` open in the full editors; `.pdf`
+  in the PDF editor; `.doc`, `.xls`, `.ppt`, `.pages`, `.numbers`, `.key`, `.hwp`, `.wps` and friends open in the
+  viewer with **Edit a copy** one click away; Visio `.vsdx` opens in the diagram viewer.
 - Autosave while you type, force save, and a real save when the last person closes the document. Saves are
   guarded by the file's ETag: if something else changed the file meanwhile, the edit is kept beside it as a
   `(conflict …)` copy rather than overwriting.
 - Two people opening the same file get the same document session — live co-editing, comments, chat.
-- **Download as** PDF (and the other formats of the family) through Document Server's conversion service.
+- **Download as…** any type Document Server converts to — for a document that is PDF, PDF/A, docx/docm/dotx/dotm,
+  odt/ott, rtf, txt, html, epub, fb2, md and page images; similar lists for sheets and slides.
 - On phones the free Document Server views; an **Edit** button opens the full desktop editor on the phone.
 - Light and dark theme, passed on to the editor.
 

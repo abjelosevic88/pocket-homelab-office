@@ -5,6 +5,7 @@ import { useApp } from '../lib/app-context'
 import { sourceIcon } from '../lib/format'
 import { ErrorBoundary } from './ErrorBoundary'
 import { Search } from './Search'
+import { GlobalDrop } from './DropZone'
 
 export default function Layout() {
   const { user, settings, status, theme, toggleTheme, setUser, sources } = useApp()
@@ -63,6 +64,7 @@ export default function Layout() {
         <main className="content"><ErrorBoundary key={loc.pathname.split('/')[1]} where={loc.pathname}><Outlet /></ErrorBoundary></main>
       </div>
       {search && <Search onClose={() => setSearch(false)} />}
+      <GlobalDrop />
     </div>
   )
 }

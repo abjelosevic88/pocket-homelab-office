@@ -19,18 +19,42 @@ func TestJWTRoundTrip(t *testing.T) {
 	}
 }
 
-func TestFormats(t *testing.T) {
-	for name, want := range map[string]Kind{"Report.DOCX": Word, "a/b/c.xlsx": Cell, "deck.pptx": Slide, "x.pdf": PDF, "old.doc": Word} {
+func TestFormatsFromManifest(t *testing.T) {
+	for name, want := range map[string]Kind{"Report.DOCX": Word, "a/b/c.xlsx": Cell, "deck.pptx": Slide, "x.pdf": PDF, "old.doc": Word, "flow.vsdx": Diagram, "macro.dotm": Word, "t.xltm": Cell, "show.ppsm": Slide} {
 		f, ok := Lookup(name)
 		if !ok || f.Kind != want {
 			t.Errorf("%s: %+v %v", name, f, ok)
 		}
 	}
-	if Opens("photo.jpg") {
-		t.Error("jpg must not open")
+	if Opens("photo.jpg") || Opens("archive.zip") || Opens("x.pdfa") {
+		t.Error("outputs-only types must not open")
+	}
+	for _, ext := range []string{"docx", "dotm", "xlsx", "xltm", "pptx", "ppsm", "pdf", "odt", "txt"} {
+		if f, _ := Lookup("f." + ext); !f.Edit {
+			t.Errorf("%s should edit", ext)
+		}
+	}
+	if f, _ := Lookup("f.txt"); !f.Lossy {
+		t.Error("txt is a lossy edit")
 	}
 	if f, _ := Lookup("old.doc"); f.Edit || !f.Convertible {
-		t.Error("doc is view + convertible")
+		t.Errorf("doc is view + convertible: %+v", f)
+	}
+	if f, _ := Lookup("flow.vsdx"); f.Edit || f.Convertible || EditableExt(f.Kind) != "" {
+		t.Errorf("vsdx is view only: %+v", f)
+	}
+	ex := Exports("a.docx")
+	if len(ex) < 10 || ex[0] != "pdf" || !CanExport("a.docx", "pdfa") || !CanExport("a.docx", "png") || CanExport("a.docx", "docx") {
+		t.Errorf("docx exports: %v", ex)
+	}
+	if !CanExport("a.xlsx", "csv") || !CanExport("a.pptx", "pdf") || !CanExport("flow.vsdx", "pdf") || !CanExport("a.pdf", "docx") {
+		t.Error("expected exports missing")
+	}
+	if Mime("a.docx") != "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || Mime("x.pdfa") != "application/pdf" {
+		t.Error("mime")
+	}
+	if n := len(All()); n < 60 {
+		t.Errorf("only %d formats", n)
 	}
 	for _, ext := range []string{"docx", "xlsx", "pptx"} {
 		b, err := Blank(ext)

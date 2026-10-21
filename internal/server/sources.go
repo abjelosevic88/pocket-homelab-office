@@ -37,6 +37,8 @@ func (s *Server) backendFor(ctx context.Context, src *store.Source) (storage.Bac
 	switch src.Kind {
 	case "builtin":
 		return storage.NewLocal(filepath.Join(s.cfg.FilesDir, strconv.FormatInt(src.UserID, 10)), "builtin", "My files"), nil
+	case "drafts":
+		return storage.NewLocal(filepath.Join(s.cfg.DataDir, "drafts", strconv.FormatInt(src.UserID, 10)), "drafts", "Drafts"), nil
 	case "folder":
 		if !s.folderAllowed(src.Folder) {
 			return nil, errors.New("that folder is not one the box offers (FOLDER_ROOTS)")
@@ -144,7 +146,7 @@ type sourceView struct {
 }
 
 func (s *Server) sourceViews(ctx context.Context, uid int64) ([]sourceView, error) {
-	if _, err := s.store.BuiltinSource(ctx, uid); err != nil {
+	if _, err := s.store.DraftsSource(ctx, uid); err != nil { // makes the built-in place too
 		return nil, err
 	}
 	srcs, err := s.store.ListSources(ctx, uid)
@@ -157,6 +159,8 @@ func (s *Server) sourceViews(ctx context.Context, uid int64) ([]sourceView, erro
 		switch srcs[i].Kind {
 		case "builtin":
 			v.Where = "On this box"
+		case "drafts":
+			v.Where = "Working copies until you save them somewhere"
 		case "folder":
 			v.Where = srcs[i].Folder
 		case "webdav":
@@ -189,6 +193,8 @@ func defaultSourceName(kind string) string {
 	switch kind {
 	case "builtin":
 		return "My files"
+	case "drafts":
+		return "Drafts"
 	case "folder":
 		return "Folder"
 	case "webdav":
@@ -255,9 +261,9 @@ func (s *Server) applySourceInput(src *store.Source, in sourceInput, isNew bool)
 	}
 	src.Name = strings.TrimSpace(in.Name)
 	switch src.Kind {
-	case "builtin":
+	case "builtin", "drafts":
 		if isNew {
-			return errors.New("the built-in folder is already there")
+			return errors.New("that place is already there")
 		}
 	case "folder":
 		p := filepath.Clean(strings.TrimSpace(in.Folder))
@@ -396,8 +402,8 @@ func (s *Server) handleDeleteSource(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err, "source")
 		return
 	}
-	if src.Kind == "builtin" {
-		writeErr(w, http.StatusBadRequest, "the built-in folder cannot be removed")
+	if src.Kind == "builtin" || src.Kind == "drafts" {
+		writeErr(w, http.StatusBadRequest, "the built-in places cannot be removed")
 		return
 	}
 	if err := s.store.DeleteSource(ctx, me(r), src.ID); err != nil {

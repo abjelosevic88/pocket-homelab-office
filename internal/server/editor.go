@@ -173,7 +173,7 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	s.publish("office.opened", fmt.Sprintf("file:%d:%s", src.ID, p), map[string]any{"user_email": u.Email, "name": e.Name, "path": p, "source": src.Kind, "mode": mode, "kind": docType, "url": s.fileURL(src.ID, p)})
 	writeJSON(w, http.StatusOK, map[string]any{
 		"api_js": ds.APIScript(), "config": cfg, "key": k.Key, "mode": mode, "kind": docType, "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "phone_view": phoneView,
-		"editable_as": office.EditableExt(f.Kind), "exports": office.ExportTargets(f.Kind), "file": view(e),
+		"editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy, "exports": office.Exports(p), "file": view(e), "draft": src.Kind == "drafts",
 	})
 }
 
@@ -425,6 +425,10 @@ func (s *Server) handleEditCopy(w http.ResponseWriter, r *http.Request) {
 	if to == "" {
 		to = office.EditableExt(f.Kind)
 	}
+	if to == "" || !office.CanExport(p, to) {
+		writeErr(w, http.StatusBadRequest, "Document Server cannot turn ."+office.Ext(p)+" into an editable type")
+		return
+	}
 	data, e, err := s.convert(ctx, src.ID, b, p, to)
 	if err != nil {
 		s.fail(w, err, "converting "+storage.Base(p))
@@ -503,6 +507,10 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	to := strings.ToLower(strings.TrimPrefix(r.URL.Query().Get("to"), "."))
 	if to == "" {
 		to = "pdf"
+	}
+	if !office.CanExport(p, to) {
+		writeErr(w, http.StatusBadRequest, "Document Server does not turn ."+office.Ext(p)+" into ."+to+" (it offers: "+strings.Join(office.Exports(p), ", ")+")")
+		return
 	}
 	data, e, err := s.convert(r.Context(), src.ID, b, p, to)
 	if err != nil {

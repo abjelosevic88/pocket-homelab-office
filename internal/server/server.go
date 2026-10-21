@@ -146,6 +146,9 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/recent", s.handleForgetRecent)
 			r.Get("/search", s.handleSearch)
 
+			r.Post("/drafts", s.handleUploadDraft)
+			r.Post("/drafts/save", s.handleSaveDraft)
+
 			r.Get("/sources", s.handleListSources)
 			r.Post("/sources", s.handleCreateSource)
 			r.Get("/sources/options", s.handleSourceOptions)

@@ -5,19 +5,21 @@ export interface AuthStatus {
   oidc?: boolean; oidc_name?: string; password_login?: boolean; core?: boolean
 }
 
-export type SourceKind = 'builtin' | 'folder' | 'webdav' | 'nextcloud' | 'documents'
+export type SourceKind = 'builtin' | 'drafts' | 'folder' | 'webdav' | 'nextcloud' | 'documents'
 
 export interface Source {
   id: number; kind: SourceKind; name: string; url: string; username: string; secret_set: boolean; folder: string; via_core: boolean
   position: number; created_at: string; where: string; writable: boolean; tree: boolean; error?: string
 }
 
-export type Kind = 'word' | 'cell' | 'slide' | 'pdf'
+export type Kind = 'word' | 'cell' | 'slide' | 'pdf' | 'diagram'
 
 export interface Entry {
   path: string; name: string; is_dir: boolean; size: number; modified: string; etag?: string; file_id?: string
-  kind?: Kind; opens: boolean; edit: boolean; ext?: string
+  kind?: Kind; opens: boolean; edit: boolean; ext?: string; exports?: string[]
 }
+
+export interface Format { ext: string; kind: Kind; edit: boolean; lossy?: boolean; convertible: boolean; mime: string; exports: string[] }
 
 export interface Listing { source: number; path: string; entries: Entry[]; writable: boolean; tree: boolean }
 
@@ -27,7 +29,7 @@ export interface SearchHit extends Entry { source_id: number; source_name: strin
 
 export interface OpenResult {
   api_js: string; config: Record<string, unknown>; key: string; mode: 'edit' | 'view'; kind: Kind; ext: string; edit: boolean; convertible: boolean
-  editable_as: string; exports: string[]; file: Entry; phone_view: boolean
+  editable_as: string; lossy?: boolean; exports: string[]; file: Entry; phone_view: boolean; draft?: boolean
 }
 
 export interface Settings {
