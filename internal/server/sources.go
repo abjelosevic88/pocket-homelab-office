@@ -17,7 +17,8 @@ import (
 
 // A source is one place a person's files live. Each person has at least the
 // built-in folder; Nextcloud (through Pocket Core or typed in), WebDAV,
-// server folders and Pocket Documents can be added in Settings → Sources.
+// server folders, Pocket Documents and Pocket Files (through Pocket Core) can
+// be added in Settings → Sources.
 
 type errNotConnected struct {
 	Name string
@@ -99,6 +100,8 @@ func (s *Server) backendFor(ctx context.Context, src *store.Source) (storage.Bac
 		return b, nil
 	case "documents":
 		return s.documentsBackend(ctx, src)
+	case "files":
+		return s.filesBackend(ctx, src)
 	}
 	return nil, fmt.Errorf("unknown source kind %q", src.Kind)
 }
@@ -180,6 +183,11 @@ func (s *Server) sourceViews(ctx context.Context, uid int64) ([]sourceView, erro
 			} else {
 				v.Where = srcs[i].URL
 			}
+		case "files":
+			v.Where = "Pocket Files through Pocket Core"
+			if srcs[i].Folder != "" {
+				v.Where += " · " + srcs[i].Folder
+			}
 		}
 		if v.Name == "" {
 			v.Name = defaultSourceName(srcs[i].Kind)
@@ -203,6 +211,8 @@ func defaultSourceName(kind string) string {
 		return "Nextcloud"
 	case "documents":
 		return "Pocket Documents"
+	case "files":
+		return "Pocket Files"
 	}
 	return kind
 }
@@ -217,7 +227,8 @@ func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSourceOptions says which kinds of source can be added here and what
-// Core already knows (the person's Nextcloud account, Pocket Documents).
+// Core already knows (the person's Nextcloud account, Pocket Documents,
+// Pocket Files).
 func (s *Server) handleSourceOptions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	out := map[string]any{"core": s.core.Configured(), "folder_roots": s.cfg.FolderRoots}
@@ -239,6 +250,11 @@ func (s *Server) handleSourceOptions(w http.ResponseWriter, r *http.Request) {
 			out["core_documents"] = true
 		} else {
 			out["core_documents_error"] = firstNonEmpty(linkReason("Pocket Documents", why), why)
+		}
+		if on, why := s.core.LinkOn(cctx, email, "files", filesScopes...); on {
+			out["core_files"] = true
+		} else {
+			out["core_files_error"] = firstNonEmpty(linkReason("Pocket Files", why), why)
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -330,6 +346,15 @@ func (s *Server) applySourceInput(src *store.Source, in sourceInput, isNew bool)
 				return errors.New("a Pocket Documents API token is needed (Settings → API tokens there)")
 			}
 		}
+	case "files":
+		if !s.core.Configured() {
+			return errors.New("there is no Pocket Core on this box; add Pocket Files as a WebDAV place with an app password instead")
+		}
+		f, err := storage.Clean(strings.TrimSpace(in.Folder))
+		if err != nil {
+			return err
+		}
+		src.Folder, src.ViaCore, src.URL, src.Username, src.Secret = f, true, "", "", ""
 	default:
 		return errors.New("unknown source kind")
 	}

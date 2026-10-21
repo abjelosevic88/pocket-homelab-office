@@ -5,7 +5,7 @@ export interface AuthStatus {
   oidc?: boolean; oidc_name?: string; password_login?: boolean; core?: boolean
 }
 
-export type SourceKind = 'builtin' | 'drafts' | 'folder' | 'webdav' | 'nextcloud' | 'documents'
+export type SourceKind = 'builtin' | 'drafts' | 'folder' | 'webdav' | 'nextcloud' | 'documents' | 'files'
 
 export interface Source {
   id: number; kind: SourceKind; name: string; url: string; username: string; secret_set: boolean; folder: string; via_core: boolean
@@ -50,6 +50,7 @@ export interface SourceOptions {
   core: boolean; folder_roots: string[]
   core_nextcloud?: { url: string; user: string; ok: boolean }; core_nextcloud_error?: string
   core_documents?: boolean; core_documents_error?: string
+  core_files?: boolean; core_files_error?: string
 }
 
 export interface APIToken { id: number; name: string; prefix: string; last_used_at: string | null; created_at: string }

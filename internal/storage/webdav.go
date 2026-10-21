@@ -23,7 +23,7 @@ type Credentials func(ctx context.Context) (user, pass string, err error)
 
 // WebDAV keeps files in a folder on a WebDAV server. With Nextcloud set, it
 // also reads Nextcloud's file ids and releases the file locks Nextcloud's own
-// editors leave behind.
+// editors leave behind. With Person set it is a person's Pocket Files home.
 type WebDAV struct {
 	// Base is the address of the folder itself.
 	Base string
@@ -35,6 +35,9 @@ type WebDAV struct {
 	Nextcloud bool
 	// ServerURL is Nextcloud's own address (for the files_lock API).
 	ServerURL string
+	// Person is whose Pocket Files home this is: Pocket Files serves every
+	// person's home at the same address, so the person is part of Canonical.
+	Person    string
 	Label     string
 	HTTP      *http.Client
 	UserAgent string
@@ -78,9 +81,39 @@ func NewNextcloud(server, user, folder string, creds Credentials) (*WebDAV, erro
 	return w, nil
 }
 
+// NewPocketFiles returns a backend for folder (a path inside the person's
+// home, "" for all of it) on the Pocket Files whose WebDAV root is dav.
+func NewPocketFiles(dav, person, folder string, creds Credentials) (*WebDAV, error) {
+	dav = strings.TrimRight(strings.TrimSpace(dav), "/")
+	folder, err := Clean(folder)
+	if err != nil {
+		return nil, err
+	}
+	if person == "" {
+		return nil, errors.New("pocket files: whose files is not known")
+	}
+	base := dav
+	if folder != "" {
+		base += "/" + escapePath(folder)
+	}
+	label := "Pocket Files"
+	if folder != "" {
+		label += " · " + folder
+	}
+	w, err := NewWebDAV(base, creds, label)
+	if err != nil {
+		return nil, err
+	}
+	w.Person, w.MkBase, w.MkPath = strings.ToLower(person), dav, folder
+	return w, nil
+}
+
 func (w *WebDAV) Kind() string {
-	if w.Nextcloud {
+	switch {
+	case w.Nextcloud:
 		return "nextcloud"
+	case w.Person != "":
+		return "files"
 	}
 	return "webdav"
 }
@@ -90,13 +123,18 @@ func (w *WebDAV) Describe() string { return w.Label }
 // Canonical is the file's address on the server, so two people reaching one
 // shared Nextcloud folder edit one document. Nextcloud addresses carry the
 // account, so a shared folder shows as two documents there until file ids
-// are used (Nextcloud) — the id is stable across accounts.
+// are used (Nextcloud) — the id is stable across accounts. Pocket Files
+// addresses do not carry the person, so the person is put in front.
 func (w *WebDAV) Canonical(p string) string {
 	c, _ := Clean(p)
-	if c == "" {
-		return w.Base
+	addr := w.Base
+	if c != "" {
+		addr += "/" + escapePath(c)
 	}
-	return w.Base + "/" + escapePath(c)
+	if w.Person != "" {
+		return "files:" + w.Person + ":" + addr
+	}
+	return addr
 }
 
 func escapePath(p string) string {

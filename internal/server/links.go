@@ -20,9 +20,10 @@ var linkOffers = []core.Offer{
 	{Scope: "files:read", Name: "See your files", Description: "List the places your files live, browse and search them, and get a link that opens a file in Pocket Office."},
 }
 
-// linkUses: Pocket Documents is one of the places files come from.
+// linkUses: Pocket Documents and Pocket Files are places files come from.
 var linkUses = []core.Use{
 	{App: "documents", Scopes: []string{"documents:read", "documents:write"}, Reason: "Open the Word, Excel and PowerPoint files in your Pocket Documents archive, and save your edits back into it"},
+	{App: "files", Scopes: []string{"files:read", "files:write"}, Reason: "Open and save documents kept in Pocket Files"},
 	{App: "collaborator", Scopes: []string{"reviews:read", "reviews:write"}, Reason: "Send a document for review in Pocket Collaborator (as a PDF, with a link back), and show which files are in review"},
 }
 
@@ -77,8 +78,9 @@ func (s *Server) linkUser(ctx context.Context, tok string, r *http.Request) (*st
 	return s.coreIdentityUser(ctx, in)
 }
 
-// reportModes tells Core how each person is connected to Nextcloud and
-// Pocket Documents here (Core → Links shows "Direct" for typed-in ones).
+// reportModes tells Core how each person is connected to Nextcloud, Pocket
+// Documents and Pocket Files here (Core → Links shows "Direct" for typed-in
+// ones; Pocket Files is only ever through Core).
 func (s *Server) reportModes(ctx context.Context) {
 	if !s.core.Configured() {
 		return
@@ -87,7 +89,7 @@ func (s *Server) reportModes(ctx context.Context) {
 	var modes []core.ConnMode
 	for _, u := range users {
 		srcs, _ := s.store.ListSources(ctx, u.ID)
-		nc, docs := "off", "off"
+		nc, docs, files := "off", "off", "off"
 		for _, src := range srcs {
 			switch src.Kind {
 			case "nextcloud":
@@ -102,13 +104,15 @@ func (s *Server) reportModes(ctx context.Context) {
 				} else if docs == "off" {
 					docs = "direct"
 				}
+			case "files":
+				files = "core"
 			}
 		}
 		collab := "off"
 		if s.core.Configured() {
 			collab = "core"
 		}
-		modes = append(modes, core.ConnMode{User: u.Email, Target: "service:nextcloud", Mode: nc}, core.ConnMode{User: u.Email, Target: "documents", Mode: docs}, core.ConnMode{User: u.Email, Target: "collaborator", Mode: collab})
+		modes = append(modes, core.ConnMode{User: u.Email, Target: "service:nextcloud", Mode: nc}, core.ConnMode{User: u.Email, Target: "documents", Mode: docs}, core.ConnMode{User: u.Email, Target: "collaborator", Mode: collab}, core.ConnMode{User: u.Email, Target: "files", Mode: files})
 	}
 	c, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()

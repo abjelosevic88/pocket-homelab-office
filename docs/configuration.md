@@ -41,7 +41,8 @@ Settings → Document Server (stored in the database, overriding the environment
 With `CORE_URL` set the app registers itself (slug `office`), and for each person Core can hand it:
 
 - their **Nextcloud** account (catalog type `nextcloud`, fields `USERNAME` + `APP_PASSWORD`), so a Nextcloud place needs nothing typed — the admin and the person can switch that off in Core at any time;
-- a link into **Pocket Documents** (`documents:read` + `documents:write`), so the office files in the archive open and save back without an API token.
+- a link into **Pocket Documents** (`documents:read` + `documents:write`), so the office files in the archive open and save back without an API token;
+- a link into **Pocket Files** (`files:read` + `files:write`): a Pocket Files place is the person's home there (or a folder in it) over WebDAV at `<files url>/dav/`, with a `pcx_` token minted for the place's owner as the password. A token is used for four minutes at most (never in its last minute) and then Core is asked again, so switching the link off in Core stops the place within minutes. Pocket Files serves every home at one address, so the owner's email is part of a file's canonical name. Without `CORE_URL` the option is not offered.
 
 It also gives *Sign in with Pocket Core*, accepts Core device tokens (`pcd_`/`pcu_`/`pco_`) as bearer tokens, publishes `office.opened`, `office.saved` and `office.created` on the bus, and offers other apps `files:read` (list places, browse, search). Without `CORE_URL` every place is typed in by hand and everything else works the same.
 
@@ -52,7 +53,7 @@ It also gives *Sign in with Pocket Core*, accepts Core device tokens (`pcd_`/`pc
 - `DATA_DIR/tmp/`: probes and scratch; safe to exclude.
 - `DATA_DIR/core.token` (+ `.oidc.json`): the app's Core credentials.
 
-Keep `DATA_DIR` at mode 0700. Files in Nextcloud, WebDAV, Pocket Documents or a server folder are never copied here: they are read when opened and written when Document Server reports a save.
+Keep `DATA_DIR` at mode 0700. Files in Nextcloud, WebDAV, Pocket Documents, Pocket Files or a server folder are never copied here: they are read when opened and written when Document Server reports a save.
 
 ## How a document is opened and saved
 
@@ -90,8 +91,8 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | GET/POST/DELETE | `/auth/tokens` · `/auth/tokens/{id}` | API tokens (plaintext shown once) |
 | GET | `/sources` | the caller's places: `{id, kind, name, where, writable, tree, …}`; `builtin` and `drafts` always exist |
 | POST | `/drafts` · `/drafts/save` | working copies, see above |
-| POST/PUT/DELETE | `/sources` · `/sources/{id}` | `{kind: builtin\|folder\|webdav\|nextcloud\|documents, name, url, username, secret, folder, via_core}`; a new place is tested before it is kept |
-| GET | `/sources/options` | what can be added here (`folder_roots`, what Core knows: `core_nextcloud`, `core_documents`) |
+| POST/PUT/DELETE | `/sources` · `/sources/{id}` | `{kind: builtin\|folder\|webdav\|nextcloud\|documents\|files, name, url, username, secret, folder, via_core}`; a new place is tested before it is kept |
+| GET | `/sources/options` | what can be added here (`folder_roots`, what Core knows: `core_nextcloud`, `core_documents`, `core_files`) |
 | POST | `/sources/{id}/test` | reads the root: `{where, files, folders, ms}` |
 | GET | `/sources/{id}/ls?path=&all=1` | one folder: `{entries:[{path, name, is_dir, size, modified, etag, kind, opens, edit, ext}], writable, tree}`; without `all` only files Document Server opens are listed |
 | GET | `/sources/{id}/file?path=&inline=1` | download as is |

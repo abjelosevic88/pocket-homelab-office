@@ -71,7 +71,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          {sources.length <= 1 && <div className="pad muted small">Add your Nextcloud, Pocket Documents, a WebDAV server or a folder on the box under <Link to="/settings/sources">Settings → Places</Link>.</div>}
+          {sources.length <= 1 && <div className="pad muted small">Add your Nextcloud, Pocket Documents, Pocket Files, a WebDAV server or a folder on the box under <Link to="/settings/sources">Settings → Places</Link>.</div>}
         </Card>
       </div>
     </div>

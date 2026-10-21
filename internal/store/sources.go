@@ -10,7 +10,7 @@ import (
 type Source struct {
 	ID        int64  `json:"id"`
 	UserID    int64  `json:"-"`
-	Kind      string `json:"kind"` // builtin | drafts | folder | webdav | nextcloud | documents
+	Kind      string `json:"kind"` // builtin | drafts | folder | webdav | nextcloud | documents | files
 	Name      string `json:"name"`
 	URL       string `json:"url"`
 	Username  string `json:"username"`

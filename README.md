@@ -1,6 +1,6 @@
 <p align="center"><img src="web/public/favicon.svg" width="72" alt=""></p>
 <h1 align="center">Pocket Office</h1>
-<p align="center">Word, Excel and PowerPoint files opened and edited in the browser — from your Nextcloud, your Pocket Documents archive, any WebDAV server or a folder on the box.<br>One Go binary, one SQLite file, one volume, and an ONLYOFFICE Document Server doing the rendering.</p>
+<p align="center">Word, Excel and PowerPoint files opened and edited in the browser — from your Nextcloud, your Pocket Documents archive, Pocket Files, any WebDAV server or a folder on the box.<br>One Go binary, one SQLite file, one volume, and an ONLYOFFICE Document Server doing the rendering.</p>
 
 Pocket Office does not try to draw a `.docx` itself. The part that has to be near-native — the layout engine,
 the ribbons, tracked changes, pivot tables, slide transitions — is **ONLYOFFICE Document Server**, the same
@@ -33,7 +33,8 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 **Files from wherever they are**
 - Each person adds their **places**: a folder on the box (built in, always there), their **Nextcloud** files
   (through Pocket Core, nothing to type — or address + app password), their **Pocket Documents** archive
-  (through Pocket Core or an API token), any **WebDAV** folder, or a server folder the admin offers
+  (through Pocket Core or an API token), their **Pocket Files** home or a folder in it (through Pocket Core),
+  any **WebDAV** folder, or a server folder the admin offers
   (`FOLDER_ROOTS`). Nothing is copied: a file is read when opened and written back where it came from.
 - Browse folders, upload (drag and drop too), new folders, rename, move, duplicate, delete; ⌘K finds a file by
   name across every place; recent files on the home page.
@@ -73,7 +74,7 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 **A Pocket app**
 - Multi-user: the first account is the admin; others get accounts or sign in with **Pocket Core**. Everything
   is strictly per person: places, recent files, tokens.
-- With Pocket Core: registered as `office`, Nextcloud credentials and the Pocket Documents link per person, events
+- With Pocket Core: registered as `office`, Nextcloud credentials and the Pocket Documents and Pocket Files links per person, events
   `office.opened` / `office.saved` / `office.created`, `files:read` offered to other apps, Core device tokens
   accepted as API tokens.
 - JSON API with bearer tokens (`po_…`), `/dashboard` for a Homepage widget, `/healthz`, `/metrics`.

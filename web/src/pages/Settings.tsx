@@ -75,6 +75,10 @@ function SourcesTab() {
             <b>🗂 Pocket Documents</b>
             <span className="muted small">{o?.core_documents ? 'Linked through Pocket Core' : o?.core ? `Through Pocket Core: ${o.core_documents_error || 'link is off'}; or type an API token` : 'Address and an API token'}</span>
           </button>
+          {o?.core && <button className="storage-kind" onClick={() => setEdit({ kind: 'files', via_core: true, folder: '' })}>
+            <b>🗃 Pocket Files</b>
+            <span className="muted small">{o.core_files ? 'Your files, linked through Pocket Core' : `Through Pocket Core: ${o.core_files_error || 'link is off'}`}</span>
+          </button>}
           <button className="storage-kind" onClick={() => setEdit({ kind: 'webdav' })}>
             <b>🌐 WebDAV</b>
             <span className="muted small">Any WebDAV folder: another Nextcloud, ownCloud, a NAS…</span>
@@ -84,7 +88,7 @@ function SourcesTab() {
             <span className="muted small">{o?.folder_roots?.length ? `Under ${o.folder_roots.join(', ')}` : 'None offered (FOLDER_ROOTS is empty)'}</span>
           </button>
         </div>
-        {settings?.core && <p className="muted small mt-s">Through Pocket Core means nothing to type: Core hands this app your own Nextcloud app password or Pocket Documents access, and you or the admin can switch that off there any time.</p>}
+        {settings?.core && <p className="muted small mt-s">Through Pocket Core means nothing to type: Core hands this app your own Nextcloud app password or Pocket Documents and Pocket Files access, and you or the admin can switch that off there any time.</p>}
       </Card>
       {edit && <SourceDialog initial={edit} options={o} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await reloadSources() }} />}
       {del && <Confirm title={`Remove “${del.name}”?`} action="Remove" message="Only the connection is removed; the files stay where they are." onCancel={() => setDel(null)} onConfirm={() => remove(del)} />}
@@ -128,6 +132,12 @@ function SourceDialog({ initial, options, onClose, onSaved }: { initial: Partial
           <Field label="App password" help="Nextcloud → Settings → Security → Devices & sessions → Create new app password"><input type="password" value={f.secret} onChange={set('secret')} placeholder={initial.secret_set ? '•••••••• (kept)' : ''} required={!initial.secret_set} /></Field>
         </>}
         {kind === 'nextcloud' && <Field label="Folder" help="A folder inside your files; empty = all of them"><input value={f.folder} onChange={set('folder')} placeholder="Documents" /></Field>}
+        {kind === 'files' && <>
+          <Field label="Connect" group>
+            {options?.core_files ? <span className="help ok">✓ Through Pocket Core, as you</span> : <span className="help bad">{options?.core_files_error || 'The Office → Files link is off in Pocket Core'}</span>}
+          </Field>
+          <Field label="Folder" help="A folder inside your Pocket Files; empty = all of them"><input value={f.folder} onChange={set('folder')} placeholder="Documents" /></Field>
+        </>}
         {kind === 'documents' && !f.via_core && <>
           <Field label="Pocket Documents address"><input value={f.url} onChange={set('url')} placeholder="https://documents.example.com" required /></Field>
           <Field label="API token" help="Pocket Documents → Settings → API tokens"><input type="password" value={f.secret} onChange={set('secret')} placeholder={initial.secret_set ? '•••••••• (kept)' : ''} required={!initial.secret_set} /></Field>

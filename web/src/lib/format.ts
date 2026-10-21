@@ -26,8 +26,8 @@ export function bytes(n: number | undefined): string {
 export const kindLabel: Record<Kind, string> = { word: 'Document', cell: 'Spreadsheet', slide: 'Presentation', pdf: 'PDF', diagram: 'Diagram' }
 export const kindLetter: Record<Kind, string> = { word: 'W', cell: 'X', slide: 'P', pdf: 'PDF', diagram: 'V' }
 
-export const sourceIcon: Record<SourceKind, string> = { builtin: '🗄', drafts: '📝', folder: '📁', webdav: '🌐', nextcloud: '☁️', documents: '🗂' }
-export const sourceLabel: Record<SourceKind, string> = { builtin: 'Built in', drafts: 'Working copies', folder: 'Server folder', webdav: 'WebDAV', nextcloud: 'Nextcloud', documents: 'Pocket Documents' }
+export const sourceIcon: Record<SourceKind, string> = { builtin: '🗄', drafts: '📝', folder: '📁', webdav: '🌐', nextcloud: '☁️', documents: '🗂', files: '🗃' }
+export const sourceLabel: Record<SourceKind, string> = { builtin: 'Built in', drafts: 'Working copies', folder: 'Server folder', webdav: 'WebDAV', nextcloud: 'Nextcloud', documents: 'Pocket Documents', files: 'Pocket Files' }
 
 export function stem(name: string): string {
   const i = name.lastIndexOf('.')
