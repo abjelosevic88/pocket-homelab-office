@@ -47,7 +47,7 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 - **ONLYOFFICE Document Server** (default): the editor runs in the browser and draws the document itself —
   snappy once loaded, heavier on the machine.
 - **Collabora Online** (optional): the document is drawn on the server and streamed as tiles over WOPI —
-  light on the browser, needs a steady connection. Each person picks a default under Settings → Account, and
+  light on the browser, needs a steady connection. Each person picks a default under Settings → Editor & look, and
   the ⋯ menu in any open file switches engines for that file. Both save into the same places with the same
   conflict guard.
 
@@ -64,7 +64,7 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 - **Download as…** any type Document Server converts to — for a document that is PDF, PDF/A, docx/docm/dotx/dotm,
   odt/ott, rtf, txt, html, epub, fb2, md and page images; similar lists for sheets and slides.
 - On phones the free Document Server views; an **Edit** button opens the full desktop editor on the phone.
-- Light and dark theme, passed on to the editor.
+- Light and dark theme (follows the system unless set), passed on to the editor.
 
 **Reviews with Pocket Collaborator**
 - Any file can be sent for review: it is rendered to PDF and lands in Pocket Collaborator with a link back; a file

@@ -29,7 +29,7 @@ Settings → Document Server (stored in the database, overriding the environment
 | `CALLBACK_URL` | `CORE_APP_URL`, else `BASE_URL` | how Document Server reaches **this app**: it downloads files from `CALLBACK_URL/api/v1/oo/file/…` and posts saves to `CALLBACK_URL/api/v1/oo/callback/…`. Must be reachable from the Document Server container (`http://pocket-office:8080`, `http://host.docker.internal:8186`, or the public address). Document Server refuses private addresses unless started with `ALLOW_PRIVATE_IP_ADDRESS=true` |
 | `COLLABORA_URL` | – | optional second engine: Collabora Online as browsers reach it (`https://collabora.example.com`). Collabora must trust this app as a WOPI host: add `CALLBACK_URL`'s origin to its `aliasgroupN` (e.g. `aliasgroup2: http://pocket-office:8080`) |
 | `COLLABORA_INTERNAL_URL` | `COLLABORA_URL` | how this server fetches `hosting/discovery` |
-| `DEFAULT_ENGINE` | `onlyoffice` | the box's default editor (`onlyoffice` or `collabora`); an admin can change it in Settings → Document Server, each person under Account & API |
+| `DEFAULT_ENGINE` | `onlyoffice` | the box's default editor (`onlyoffice` or `collabora`); an admin can change it in Settings → Document Server, each person under Editor & look |
 | `WOPI_URL` | `BASE_URL` | how Collabora reaches this app for WOPI. Collabora lets only this address's origin embed it, so it is normally the public address (the Collabora container must resolve and reach it) |
 | `CORE_URL` | – | Pocket Core as the app reaches it (`http://pocket-core:8080`, `http://host.docker.internal:8179`) |
 | `CORE_REGISTRATION_KEY` | – | from Core → Settings. Used once; the app token Core mints is kept in `DATA_DIR/core.token` |
@@ -80,7 +80,7 @@ Every person has a **Drafts** place (`DATA_DIR/drafts/<user id>/`). `POST /api/v
 
 ## API
 
-Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Settings → Account & API), a Pocket Core token (`pcd_`, `pcu_`, `pco_`) or a Core app-link token (`pcx_`, `files:read`). Errors are `{"error": "…"}`.
+Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Settings → API tokens), a Pocket Core token (`pcd_`, `pcu_`, `pco_`) or a Core app-link token (`pcx_`, `files:read`). Errors are `{"error": "…"}`.
 
 | Method | Path | Notes |
 |---|---|---|
