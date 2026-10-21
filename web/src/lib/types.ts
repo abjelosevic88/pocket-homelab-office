@@ -32,7 +32,7 @@ export interface SearchHit extends Entry { source_id: number; source_name: strin
 export type Engine = 'onlyoffice' | 'collabora'
 
 export interface OpenResult {
-  engine: Engine; engines: Engine[]
+  engine: Engine; engines: Engine[]; engine_note?: string; collabora_opens?: boolean
   collabora?: { action_url: string; access_token: string; access_token_ttl: string; wopi_src: string; edit: boolean; origin: string }
   api_js?: string; config?: Record<string, unknown>; key: string; mode: 'edit' | 'view'; kind: Kind; ext: string; edit: boolean; convertible: boolean
   editable_as: string; lossy?: boolean; exports: string[]; file: Entry; phone_view: boolean; draft?: boolean; collab?: { available: boolean; url?: string; error?: string }

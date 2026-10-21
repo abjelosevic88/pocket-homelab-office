@@ -125,6 +125,7 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	s.decorateReviews(ctx, u.ID, src, b, []fileView{fv})
 	common := map[string]any{"key": k.Key, "kind": string(f.Kind), "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy,
 		"exports": office.Exports(p), "file": fv, "draft": src.Kind == "drafts", "engines": s.engines(ctx), "collab": s.collabInfo(ctx, u.ID)}
+	common["collabora_opens"] = s.collabora(ctx).Configured() && s.collabora(ctx).Opens(ctx, office.Ext(p))
 	if engine == "collabora" {
 		co, err := s.collaboraOpen(ctx, k, e, f, firstNonEmpty(in.Lang, "en"), in.Dark)
 		if err != nil {
@@ -134,6 +135,7 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			engine = "onlyoffice"
+			common["engine_note"] = "Collabora does not open ." + office.Ext(p) + " files, so ONLYOFFICE opened it"
 		} else {
 			mode := "view"
 			if co["edit"] == true {

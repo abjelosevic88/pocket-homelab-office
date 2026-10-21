@@ -59,6 +59,7 @@ export default function Editor() {
       .then(async r => {
         if (dead) return
         setRes(r)
+        if (r.engine_note) toast(r.engine_note)
         if (r.engine === 'collabora') return // the form below posts into the frame
         await loadScript(r.api_js!)
         if (dead || !window.DocsAPI) return
@@ -130,7 +131,7 @@ export default function Editor() {
         <KindBadge kind={res?.kind} ext={res?.ext || path.split('.').pop()} />
         <span className="editor-title grow">
           <span className="ellipsis">{name}</span>
-          <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.engine === 'collabora' ? ' · Collabora' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
+          <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.engine === 'collabora' ? ' · Collabora' : res?.engine_note ? ' · ONLYOFFICE (Collabora has no .' + res.ext + ')' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
         </span>
         {res?.file.review && <ReviewBadge review={res.file.review} />}
         {res?.draft && <button className="btn primary sm" onClick={() => setSaveTo(true)} title="This is a working copy in Drafts; put it into a place">Save to…</button>}
@@ -141,7 +142,7 @@ export default function Editor() {
           {res && res.exports.length > 0 && <button onClick={() => { close(); setDl(true) }}>Download as… ({res.exports.length} types)</button>}
           {res?.collab?.available && <><hr /><button onClick={() => { close(); setCollab(true) }}>{res.file.review && !['approved', 'rejected', 'cancelled'].includes(res.file.review.status) ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…'}</button>{res.file.review && <a href={res.file.review.url} target="_blank" rel="noreferrer" onClick={close}>Open the review ↗</a>}</>}
           {res && res.mode === 'view' && res.convertible && <><hr /><button onClick={() => { close(); setConfirmCopy(true) }}>Edit a copy as .{res.editable_as}</button></>}
-          {res && res.engines.length > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}</button>)}</>}
+          {res && res.engines.length > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} disabled={e === 'collabora' && res.collabora_opens === false} title={e === 'collabora' && res.collabora_opens === false ? `Collabora does not open .${res.ext} files` : ''} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}{e === 'collabora' && res.collabora_opens === false ? ` (no .${res.ext})` : ''}</button>)}</>}
           <hr />
           {isMobileUA() && res?.engine !== 'collabora' && (desktop ? <button onClick={() => { close(); sessionStorage.removeItem('po-desktop'); setDesktop(false) }}>Back to the phone viewer</button> : <button onClick={() => { close(); sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }}>Open the desktop editor</button>)}
           <button onClick={() => { close(); location.reload() }}>Reload the editor</button>
