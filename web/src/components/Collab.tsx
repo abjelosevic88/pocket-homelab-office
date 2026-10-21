@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, V1 } from '../lib/api'
 import type { Entry, ReviewHit } from '../lib/types'
 import { ago } from '../lib/format'
-import { Field, Modal, Segmented, useToast } from './ui'
+import { Field, Modal, Segmented, Switch, useToast } from './ui'
+import { Icon } from './icons'
 
 export const reviewStatusLabel: Record<string, string> = { draft: 'Review draft', in_review: 'In review', changes_requested: 'Changes requested', approved: 'Approved', rejected: 'Rejected', cancelled: 'Review cancelled' }
 
@@ -37,13 +38,13 @@ export function SendToCollab({ sourceId, file, onClose, beforeSend, onSent }: { 
   const isPDF = /\.pdf$/i.test(file.name)
   return (
     <Modal title={`Send “${file.name}” for review`} onClose={onClose}>
-      {!status && <div className="muted">Checking Pocket Collaborator…</div>}
-      {status && !status.available && <div className="callout danger">Pocket Collaborator is not reachable: {status.error || 'not connected through Pocket Core'}.</div>}
-      {done && <div className="grid" style={{ gap: 12 }}>
-        <div className="callout success">{done.created ? 'A review was created' : `Revision v${done.revision} was added`}{isPDF ? '' : ' from a PDF rendering of this file'}.</div>
-        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Close</button><a className="btn primary" href={done.url} target="_blank" rel="noreferrer">Open in Collaborator ↗</a></div>
+      {!status && <div className="loading"><span className="spinner" /> Checking Pocket Collaborator…</div>}
+      {status && !status.available && <div className="callout danger"><Icon name="alert" size={15} /><span>Pocket Collaborator is not reachable: {status.error || 'not connected through Pocket Core'}.</span></div>}
+      {done && <div className="stack">
+        <div className="callout success"><Icon name="check-circle" size={16} className="ok-text" /><span>{done.created ? 'A review was created' : `Revision v${done.revision} was added`}{isPDF ? '' : ' from a PDF rendering of this file'}.</span></div>
+        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Close</button><a className="btn primary" href={done.url} target="_blank" rel="noreferrer">Open in Collaborator<Icon name="external" size={14} /></a></div>
       </div>}
-      {status?.available && !done && <form onSubmit={send} className="grid" style={{ gap: 14 }}>
+      {status?.available && !done && <form onSubmit={send} className="stack">
         {existing && <Field label="This file is already in review" group>
           <div className="row wrap" style={{ gap: 8 }}><ReviewBadge review={existing} /><span className="muted small">{existing.title} · v{existing.revisions}</span></div>
           <Segmented value={mode} onChange={setMode} options={[{ value: 'revision', label: `Add as revision v${existing.revisions + 1}` }, { value: 'new', label: 'Start a separate review' }]} />
@@ -53,12 +54,12 @@ export function SendToCollab({ sourceId, file, onClose, beforeSend, onSent }: { 
           <Field label="What should people look at?"><textarea value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} rows={3} placeholder="Optional" /></Field>
           <div className="two-col tight">
             <Field label="Due date"><input type="date" value={f.due_date} onChange={e => setF(x => ({ ...x, due_date: e.target.value }))} /></Field>
-            <label className="row small" style={{ alignSelf: 'end', paddingBottom: 8 }}><input type="checkbox" style={{ width: 'auto' }} checked={f.start} onChange={e => setF(x => ({ ...x, start: e.target.checked }))} /> Start the review right away</label>
+            <div className="switch-row" style={{ alignSelf: 'end', paddingBottom: 7 }}><Switch checked={f.start} onChange={v => setF(x => ({ ...x, start: v }))} label="Start the review right away" /><span>Start the review right away</span></div>
           </div>
         </>}
         {existing && mode === 'revision' && <Field label="What changed?"><input value={f.note} onChange={e => setF(x => ({ ...x, note: e.target.value }))} placeholder="Optional note for the reviewers" /></Field>}
         <p className="muted small">{isPDF ? 'The PDF is sent as it is.' : 'Collaborator reviews PDFs: the file is rendered to PDF by the editor engine and sent; the original stays here and the review links back to it.'}{!existing && ' People and roles are added in Collaborator.'}</p>
-        {err && <div className="callout danger">{err}</div>}
+        {err && <div className="callout danger"><Icon name="alert" size={15} /><span>{err}</span></div>}
         <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>{busy ? 'Sending…' : existing && mode === 'revision' ? 'Send revision' : 'Send for review'}</button></div>
       </form>}
     </Modal>

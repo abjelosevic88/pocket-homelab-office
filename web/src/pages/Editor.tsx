@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, qs, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { Engine, Entry, OpenResult } from '../lib/types'
-import { isMobileUA, isPhone, kindLabel, sourceIcon } from '../lib/format'
-import { Confirm, KindBadge, Loading, Menu, useToast } from '../components/ui'
+import { isMobileUA, isPhone, kindLabel } from '../lib/format'
+import { Confirm, download, KindBadge, Loading, type MenuItem, MenuButton, useToast } from '../components/ui'
+import { Icon } from '../components/icons'
 import { DownloadAs } from '../components/DownloadAs'
 import { SaveTo } from '../components/SaveTo'
 import { ReviewBadge, SendToCollab } from '../components/Collab'
@@ -126,6 +127,30 @@ export default function Editor() {
   const name = res?.file.name || path.split('/').pop() || ''
   const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
 
+  const inReview = !!res?.file.review && !['approved', 'rejected', 'cancelled'].includes(res.file.review.status)
+  const moreItems = (): MenuItem[] => {
+    const out: MenuItem[] = [{ label: 'Download original', icon: 'download', onSelect: () => download(`${V1}/sources/${id}/file${qs({ path })}`) }]
+    if (res && (res.exports?.length ?? 0) > 0) out.push({ label: `Download as… (${res.exports.length} types)`, icon: 'layers', onSelect: () => setDl(true) })
+    if (res?.collab?.available) {
+      out.push('sep', { label: inReview ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…', icon: 'send', onSelect: () => setCollab(true) })
+      if (res.file.review) out.push({ label: 'Open the review', icon: 'external', onSelect: () => window.open(res.file.review!.url, '_blank', 'noopener') })
+    }
+    if (res && res.mode === 'view' && res.convertible) out.push('sep', { label: `Edit a copy as .${res.editable_as}`, icon: 'copy', onSelect: () => setConfirmCopy(true) })
+    if (res && (res.engines?.length ?? 0) > 1) {
+      out.push('sep', { heading: 'Engine' })
+      for (const e of res.engines.filter(e => e !== res.engine)) {
+        const no = e === 'collabora' && res.collabora_opens === false
+        out.push({ label: `Open with ${e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}${no ? ` (no .${res.ext})` : ''}`, icon: 'refresh', disabled: no, onSelect: () => switchEngine(e) })
+      }
+    }
+    out.push('sep')
+    if (isMobileUA() && res?.engine !== 'collabora') out.push(desktop
+      ? { label: 'Back to the phone viewer', icon: 'smartphone', onSelect: () => { sessionStorage.removeItem('po-desktop'); setDesktop(false) } }
+      : { label: 'Open the desktop editor', icon: 'monitor', onSelect: () => { sessionStorage.setItem('po-desktop', '1'); setDesktop(true) } })
+    out.push({ label: 'Reload the editor', icon: 'refresh', onSelect: () => location.reload() })
+    return out
+  }
+
   const editCopy = async () => {
     setConfirmCopy(false)
     try { const n = await api.post<Entry>(`${V1}/sources/${id}/edit-copy`, { path }); navigate(`/edit/${id}${qs({ path: n.path })}`) } catch (e) { toast((e as Error).message, 'err') }
@@ -134,30 +159,22 @@ export default function Editor() {
   return (
     <div className={`editor-page ${phone ? 'phone' : ''}`}>
       <header className="editor-bar">
-        <Link className="btn ghost sm back" to={backTo(id!, path)} title="Back to files">‹ {phone ? '' : 'Files'}</Link>
+        <Link className="btn ghost sm back" to={backTo(id!, path)} title="Back to files" aria-label="Back to files"><Icon name="chevron-left" size={17} />{phone ? '' : 'Files'}</Link>
         <KindBadge kind={res?.kind} ext={res?.ext || path.split('.').pop()} />
         <span className="editor-title grow">
           <span className="ellipsis">{name}</span>
-          <small className="muted ellipsis">{src ? `${sourceIcon[src.kind]} ${src.name}` : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.engine === 'collabora' ? ' · Collabora' : res?.engine_note ? ' · ONLYOFFICE (Collabora has no .' + res.ext + ')' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}{state === 'saving' ? ' · saving…' : ''}</small>
+          <small className="muted ellipsis">{src ? src.name : ''}{folder ? ` / ${folder}` : ''}{res?.draft ? ' · working copy' : ''}{res?.engine === 'collabora' ? ' · Collabora' : res?.engine_note ? ' · ONLYOFFICE (Collabora has no .' + res.ext + ')' : ''}{res?.phone_view ? ' · viewing' : res?.mode === 'view' ? ' · view only' : res?.lossy ? ' · saves as .' + res.ext + ' (plain format)' : ''}</small>
         </span>
+        {state === 'saving' && <span className="editor-saving" title="Saving…"><span className="spinner" />{phone ? '' : 'Saving…'}</span>}
         {res?.file.review && <ReviewBadge review={res.file.review} />}
-        {res?.draft && <button className="btn primary sm" onClick={() => setSaveTo(true)} title="This is a working copy in Drafts; put it into a place">Save to…</button>}
-        {res && res.mode === 'view' && res.convertible && <button className="btn primary sm" onClick={() => setConfirmCopy(true)}>Edit a copy</button>}
-        {res?.phone_view && <button className="btn primary sm" onClick={() => { sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }} title="The free Document Server views on phones; this opens the full desktop editor here">Edit</button>}
-        <Menu button={<button className="btn ghost sm" aria-label="More">⋯</button>}>{close => <>
-          <a href={`${V1}/sources/${id}/file${qs({ path })}`} onClick={close}>Download original</a>
-          {res && res.exports.length > 0 && <button onClick={() => { close(); setDl(true) }}>Download as… ({res.exports.length} types)</button>}
-          {res?.collab?.available && <><hr /><button onClick={() => { close(); setCollab(true) }}>{res.file.review && !['approved', 'rejected', 'cancelled'].includes(res.file.review.status) ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…'}</button>{res.file.review && <a href={res.file.review.url} target="_blank" rel="noreferrer" onClick={close}>Open the review ↗</a>}</>}
-          {res && res.mode === 'view' && res.convertible && <><hr /><button onClick={() => { close(); setConfirmCopy(true) }}>Edit a copy as .{res.editable_as}</button></>}
-          {res && (res.engines?.length ?? 0) > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} disabled={e === 'collabora' && res.collabora_opens === false} title={e === 'collabora' && res.collabora_opens === false ? `Collabora does not open .${res.ext} files` : ''} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}{e === 'collabora' && res.collabora_opens === false ? ` (no .${res.ext})` : ''}</button>)}</>}
-          <hr />
-          {isMobileUA() && res?.engine !== 'collabora' && (desktop ? <button onClick={() => { close(); sessionStorage.removeItem('po-desktop'); setDesktop(false) }}>Back to the phone viewer</button> : <button onClick={() => { close(); sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }}>Open the desktop editor</button>)}
-          <button onClick={() => { close(); location.reload() }}>Reload the editor</button>
-        </>}</Menu>
+        {res?.draft && <button type="button" className="btn primary sm" onClick={() => setSaveTo(true)} title="This is a working copy in Drafts; put it into a place"><Icon name="folder-plus" size={15} />Save to…</button>}
+        {res && res.mode === 'view' && res.convertible && <button type="button" className="btn primary sm" onClick={() => setConfirmCopy(true)}><Icon name="copy" size={15} />Edit a copy</button>}
+        {res?.phone_view && <button type="button" className="btn primary sm" onClick={() => { sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }} title="The free Document Server views on phones; this opens the full desktop editor here"><Icon name="edit" size={15} />Edit</button>}
+        <MenuButton label="More" className="btn ghost icon-only sm" align="right" width={250} items={moreItems}><Icon name="more" size={17} /></MenuButton>
       </header>
       <div className="editor-host">
         {state === 'loading' && !err && <div className="editor-overlay"><Loading text={res ? `Starting the ${kindLabel[res.kind].toLowerCase()} editor…` : 'Opening…'} /></div>}
-        {err && <div className="editor-overlay"><div className="callout danger" style={{ maxWidth: 520 }}><b>Could not open {name}</b><br />{err}<div className="row mt"><button className="btn" onClick={() => location.reload()}>Try again</button><Link className="btn" to={backTo(id!, path)}>Back to files</Link></div></div></div>}
+        {err && <div className="editor-overlay"><div className="editor-error"><span className="empty-ico"><Icon name="alert" size={22} /></span><h3>Could not open {name}</h3><p className="muted">{err}</p><div className="row"><button type="button" className="btn primary" onClick={() => location.reload()}>Try again</button><Link className="btn" to={backTo(id!, path)}>Back to files</Link></div></div></div>}
         <div ref={onlyOfficeHost} className="onlyoffice-host" hidden={res?.engine === 'collabora'} />
         {res?.engine === 'collabora' && <>
           <form ref={coForm} method="post" action={res.collabora!.action_url} target="po-collabora" style={{ display: 'none' }}>

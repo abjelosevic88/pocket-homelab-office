@@ -2,12 +2,16 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { api, V1 } from './api'
 import type { AuthStatus, Settings, Source, User } from './types'
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 interface AppState {
   status: AuthStatus | null
   user: User | null
   settings: Settings | null
   sources: Source[]
+  themeMode: ThemeMode
   theme: 'light' | 'dark'
+  setThemeMode: (m: ThemeMode) => void
   toggleTheme: () => void
   refresh: () => Promise<void>
   reloadSources: () => Promise<void>
@@ -23,9 +27,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [sources, setSources] = useState<Source[]>([])
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('po-theme') as 'light' | 'dark') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
-
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('po-theme', theme) }, [theme])
+  // The theme follows the system unless set to light or dark. (A new key: the old one
+  // always stored the system's value, which would pin everyone to it.)
+  const [themeMode, setThemeModeRaw] = useState<ThemeMode>(() => (localStorage.getItem('po-theme-mode') as ThemeMode) || 'system')
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const h = () => setSystemDark(mq.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+  const theme: 'light' | 'dark' = themeMode === 'system' ? (systemDark ? 'dark' : 'light') : themeMode
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', theme === 'dark' ? '#111113' : '#ffffff'))
+  }, [theme])
+  const setThemeMode = useCallback((m: ThemeMode) => { setThemeModeRaw(m); if (m === 'system') localStorage.removeItem('po-theme-mode'); else localStorage.setItem('po-theme-mode', m) }, [])
   useEffect(() => { if (settings?.title) document.title = settings.title }, [settings?.title])
 
   const reloadSources = useCallback(async () => { setSources(await api.get<Source[]>(`${V1}/sources`)) }, [])
@@ -45,5 +62,5 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('po:unauthorized', h)
   }, [])
 
-  return <Ctx.Provider value={{ status, user, settings, sources, theme, toggleTheme: () => setTheme(t => t === 'dark' ? 'light' : 'dark'), refresh, reloadSources, reloadSettings, setUser }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ status, user, settings, sources, themeMode, theme, setThemeMode, toggleTheme: () => setThemeMode(theme === 'dark' ? 'light' : 'dark'), refresh, reloadSources, reloadSettings, setUser }}>{children}</Ctx.Provider>
 }

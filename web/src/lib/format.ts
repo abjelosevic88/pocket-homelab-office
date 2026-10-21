@@ -26,7 +26,9 @@ export function bytes(n: number | undefined): string {
 export const kindLabel: Record<Kind, string> = { word: 'Document', cell: 'Spreadsheet', slide: 'Presentation', pdf: 'PDF', diagram: 'Diagram' }
 export const kindLetter: Record<Kind, string> = { word: 'W', cell: 'X', slide: 'P', pdf: 'PDF', diagram: 'V' }
 
-export const sourceIcon: Record<SourceKind, string> = { builtin: '🗄', drafts: '📝', folder: '📁', webdav: '🌐', nextcloud: '☁️', documents: '🗂', files: '🗃' }
+/** Stroke icon and colour per kind of place. */
+export const sourceIcon: Record<SourceKind, string> = { builtin: 'hard-drive', drafts: 'pencil', folder: 'folder', webdav: 'globe', nextcloud: 'cloud', documents: 'archive', files: 'files' }
+export const sourceColor: Record<SourceKind, string> = { builtin: '#c2410c', drafts: '#d97706', folder: '#7c3aed', webdav: '#64748b', nextcloud: '#0082c9', documents: '#0d9488', files: '#2563eb' }
 export const sourceLabel: Record<SourceKind, string> = { builtin: 'Built in', drafts: 'Working copies', folder: 'Server folder', webdav: 'WebDAV', nextcloud: 'Nextcloud', documents: 'Pocket Documents', files: 'Pocket Files' }
 
 export function stem(name: string): string {
