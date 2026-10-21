@@ -121,8 +121,9 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.store.Touch(ctx, u.ID, src.ID, p)
 
-	fv := view(e)
-	s.decorateReviews(ctx, u.ID, src, b, []fileView{fv})
+	files := []fileView{view(e)}
+	s.decorateReviews(ctx, u.ID, src, b, files)
+	fv := files[0]
 	common := map[string]any{"key": k.Key, "kind": string(f.Kind), "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy,
 		"exports": office.Exports(p), "file": fv, "draft": src.Kind == "drafts", "engines": s.engines(ctx), "collab": s.collabInfo(ctx, u.ID)}
 	common["collabora_opens"] = s.collabora(ctx).Configured() && s.collabora(ctx).Opens(ctx, office.Ext(p))
@@ -204,10 +205,9 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		cfg["token"] = tok
 	}
 	s.publish("office.opened", fmt.Sprintf("file:%d:%s", src.ID, p), map[string]any{"user_email": u.Email, "name": e.Name, "path": p, "source": src.Kind, "mode": mode, "kind": docType, "url": s.fileURL(src.ID, p)})
-	writeJSON(w, http.StatusOK, map[string]any{
-		"api_js": ds.APIScript(), "config": cfg, "key": k.Key, "mode": mode, "kind": docType, "ext": office.Ext(p), "edit": f.Edit, "convertible": f.Convertible, "phone_view": phoneView,
-		"editable_as": office.EditableExt(f.Kind), "lossy": f.Lossy, "exports": office.Exports(p), "file": view(e), "draft": src.Kind == "drafts",
-	})
+	common["engine"], common["mode"], common["phone_view"] = "onlyoffice", mode, phoneView
+	common["api_js"], common["config"] = ds.APIScript(), cfg
+	writeJSON(w, http.StatusOK, common)
 }
 
 func parseTime(s string) time.Time {

@@ -201,11 +201,16 @@ func (d *docsBackend) get(ctx context.Context, p string) (*pdDocument, error) {
 	if id == 0 {
 		return nil, storage.ErrNotFound
 	}
-	var doc pdDocument
-	if _, err := d.do(ctx, http.MethodGet, "/api/v1/documents/"+strconv.FormatInt(id, 10), nil, "", &doc); err != nil {
+	var result struct {
+		Document pdDocument `json:"document"`
+	}
+	if _, err := d.do(ctx, http.MethodGet, "/api/v1/documents/"+strconv.FormatInt(id, 10), nil, "", &result); err != nil {
 		return nil, err
 	}
-	return &doc, nil
+	if result.Document.ID != id {
+		return nil, errors.New("pocket documents returned invalid document metadata")
+	}
+	return &result.Document, nil
 }
 
 func (d *docsBackend) Stat(ctx context.Context, p string) (storage.Entry, error) {

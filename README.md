@@ -129,6 +129,10 @@ make docker   # the container image
 
 `make dev` runs the API on :8080 and Vite on :5173 with hot reload. `AUTH_MODE=none` skips sign-in while developing.
 
+Editor browser regressions run with `cd web && npx playwright install --with-deps chromium && npm test`.
+They cover PDF/Word menus, editor errors, and engine switching without requiring a Document Server.
+To use an existing Docker Chromium instead, set `PLAYWRIGHT_CDP_URL` to its local debugging address.
+
 ## Part of the Pocket family
 
 Pocket Office follows the same shape as the other Pocket apps — Go + chi + SQLite, React + Vite, one binary,

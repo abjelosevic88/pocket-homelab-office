@@ -15,7 +15,7 @@ declare global {
 
 const scripts = new Map<string, Promise<void>>()
 function loadScript(src: string): Promise<void> {
-  if (window.DocsAPI && scripts.has(src)) return scripts.get(src)!
+  if (scripts.has(src)) return scripts.get(src)!
   const p = new Promise<void>((resolve, reject) => {
     const s = document.createElement('script')
     s.src = src
@@ -46,6 +46,7 @@ export default function Editor() {
   const [collab, setCollab] = useState(false)
   const [desktop, setDesktop] = useState(() => sessionStorage.getItem('po-desktop') === '1')
   const editor = useRef<{ destroyEditor: () => void } | null>(null)
+  const onlyOfficeHost = useRef<HTMLDivElement>(null)
   const coForm = useRef<HTMLFormElement>(null)
   const coFrame = useRef<HTMLIFrameElement>(null)
   const saveWaiters = useRef<(() => void)[]>([])
@@ -54,6 +55,7 @@ export default function Editor() {
 
   useEffect(() => {
     let dead = false
+    const host = onlyOfficeHost.current!
     setRes(null); setErr(''); setState('loading')
     api.post<OpenResult>(`${V1}/sources/${id}/open`, { path, mobile: isMobileUA(), desktop, dark: theme === 'dark', lang: navigator.language.split('-')[0], engine: engineParam })
       .then(async r => {
@@ -64,17 +66,22 @@ export default function Editor() {
         await loadScript(r.api_js!)
         if (dead || !window.DocsAPI) return
         const events = {
-          onAppReady: () => setState('ready'),
-          onDocumentStateChange: (e: { data: boolean }) => setState(e.data ? 'saving' : 'ready'),
-          onRequestClose: () => navigate(backTo(id!, path)),
-          onError: (e: { data: { errorCode: number; errorDescription: string } }) => { setErr(e.data?.errorDescription || 'Document Server reported an error'); setState('error') },
-          onWarning: (e: { data: { warningDescription: string } }) => toast(e.data?.warningDescription || 'Warning from Document Server', 'err'),
-          onRequestSaveAs: (e: { data: { title: string; url: string; fileType: string } }) => toast('Use the file menu’s Download to save a copy'),
+          onAppReady: () => { if (!dead) setState('ready') },
+          onDocumentStateChange: (e: { data: boolean }) => { if (!dead) setState(e.data ? 'saving' : 'ready') },
+          onRequestClose: () => { if (!dead) navigate(backTo(id!, path)) },
+          onError: (e: { data: { errorCode: number; errorDescription: string } }) => { if (!dead) { setErr(e.data?.errorDescription || 'Document Server reported an error'); setState('error') } },
+          onWarning: (e: { data: { warningDescription: string } }) => { if (!dead) toast(e.data?.warningDescription || 'Warning from Document Server', 'err') },
+          onRequestSaveAs: () => { if (!dead) toast('Use the file menu’s Download to save a copy') },
         }
+        // The SDK replaces its target with an iframe, and replaces it again on
+        // destroy. Keep those nodes outside React's reconciliation tree.
+        const target = document.createElement('div')
+        target.id = 'po-editor'
+        host.replaceChildren(target)
         editor.current = new window.DocsAPI.DocEditor('po-editor', { ...r.config, events })
       })
       .catch(e => { if (!dead) { setErr((e as Error).message); setState('error') } })
-    return () => { dead = true; try { editor.current?.destroyEditor() } catch {} editor.current = null }
+    return () => { dead = true; try { editor.current?.destroyEditor() } catch {} editor.current = null; host.replaceChildren() }
   }, [id, path, desktop, engineParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Collabora: post the access token into the frame, then talk WOPI postMessage.
@@ -142,7 +149,7 @@ export default function Editor() {
           {res && res.exports.length > 0 && <button onClick={() => { close(); setDl(true) }}>Download as… ({res.exports.length} types)</button>}
           {res?.collab?.available && <><hr /><button onClick={() => { close(); setCollab(true) }}>{res.file.review && !['approved', 'rejected', 'cancelled'].includes(res.file.review.status) ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…'}</button>{res.file.review && <a href={res.file.review.url} target="_blank" rel="noreferrer" onClick={close}>Open the review ↗</a>}</>}
           {res && res.mode === 'view' && res.convertible && <><hr /><button onClick={() => { close(); setConfirmCopy(true) }}>Edit a copy as .{res.editable_as}</button></>}
-          {res && res.engines.length > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} disabled={e === 'collabora' && res.collabora_opens === false} title={e === 'collabora' && res.collabora_opens === false ? `Collabora does not open .${res.ext} files` : ''} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}{e === 'collabora' && res.collabora_opens === false ? ` (no .${res.ext})` : ''}</button>)}</>}
+          {res && (res.engines?.length ?? 0) > 1 && <><hr />{res.engines.filter(e => e !== res.engine).map(e => <button key={e} disabled={e === 'collabora' && res.collabora_opens === false} title={e === 'collabora' && res.collabora_opens === false ? `Collabora does not open .${res.ext} files` : ''} onClick={() => { close(); switchEngine(e) }}>Open with {e === 'collabora' ? 'Collabora' : 'ONLYOFFICE'}{e === 'collabora' && res.collabora_opens === false ? ` (no .${res.ext})` : ''}</button>)}</>}
           <hr />
           {isMobileUA() && res?.engine !== 'collabora' && (desktop ? <button onClick={() => { close(); sessionStorage.removeItem('po-desktop'); setDesktop(false) }}>Back to the phone viewer</button> : <button onClick={() => { close(); sessionStorage.setItem('po-desktop', '1'); setDesktop(true) }}>Open the desktop editor</button>)}
           <button onClick={() => { close(); location.reload() }}>Reload the editor</button>
@@ -151,13 +158,14 @@ export default function Editor() {
       <div className="editor-host">
         {state === 'loading' && !err && <div className="editor-overlay"><Loading text={res ? `Starting the ${kindLabel[res.kind].toLowerCase()} editor…` : 'Opening…'} /></div>}
         {err && <div className="editor-overlay"><div className="callout danger" style={{ maxWidth: 520 }}><b>Could not open {name}</b><br />{err}<div className="row mt"><button className="btn" onClick={() => location.reload()}>Try again</button><Link className="btn" to={backTo(id!, path)}>Back to files</Link></div></div></div>}
-        {res?.engine === 'collabora' ? <>
+        <div ref={onlyOfficeHost} className="onlyoffice-host" hidden={res?.engine === 'collabora'} />
+        {res?.engine === 'collabora' && <>
           <form ref={coForm} method="post" action={res.collabora!.action_url} target="po-collabora" style={{ display: 'none' }}>
             <input type="hidden" name="access_token" value={res.collabora!.access_token} />
             <input type="hidden" name="access_token_ttl" value={res.collabora!.access_token_ttl} />
           </form>
           <iframe ref={coFrame} name="po-collabora" title="Collabora Online" allow="clipboard-read *; clipboard-write *; fullscreen *" />
-        </> : <div id="po-editor" />}
+        </>}
       </div>
       {collab && res && <SendToCollab sourceId={id!} file={res.file} beforeSend={flush} onClose={() => setCollab(false)} onSent={() => api.get<{ review: typeof res.file.review }>(`${V1}/sources/${id}/collab?path=${encodeURIComponent(path)}`).then(r => setRes(x => x ? { ...x, file: { ...x.file, review: r.review } } : x)).catch(() => {})} />}
       {saveTo && res && <SaveTo path={path} name={name} beforeSave={flush} onClose={() => setSaveTo(false)} />}
