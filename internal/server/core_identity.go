@@ -1,0 +1,58 @@
+package server
+
+import (
+	"context"
+	"strings"
+
+	core "github.com/abjelosevic88/pocket-homelab-core/sdk"
+	"github.com/abjelosevic88/pocket-homelab-office/internal/store"
+)
+
+func (s *Server) coreIdentityUser(ctx context.Context, in *core.Introspection) (*store.User, error) {
+	issuer, subject := s.core.IdentityKey(in)
+	return s.identityUser(ctx, issuer, subject, in.User.Email, in.User.Name, true)
+}
+
+func (s *Server) identityUser(ctx context.Context, issuer, subject, email, name string, create bool) (*store.User, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	id, err := s.core.ResolveIdentity(ctx, issuer, subject, func() (int64, error) {
+		u, err := s.store.GetUserByEmail(ctx, email)
+		if err != nil && create {
+			u, err = s.firstOrSystemUser(ctx, email, name)
+		}
+		if err != nil {
+			return 0, err
+		}
+		return u.ID, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.store.DB.ExecContext(ctx, `UPDATE users SET email=?, name=CASE WHEN ?='' THEN name ELSE ? END WHERE id=?`, email, name, name, id); err != nil {
+		return nil, err
+	}
+	return s.store.GetUser(ctx, id)
+}
+
+func (s *Server) sessionUser(ctx context.Context, id string) (*store.User, error) {
+	u, err := s.store.GetSessionUser(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.core.ValidateSession(ctx, id); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// issuerIsCore reports whether an OIDC issuer is the Pocket Core the app is registered with.
+func (s *Server) issuerIsCore(iss string) bool {
+	if !s.core.Configured() {
+		return false
+	}
+	iss = strings.TrimRight(iss, "/")
+	if o := s.core.OIDC(); o.Issuer != "" && strings.TrimRight(o.Issuer, "/") == iss {
+		return true
+	}
+	return iss == s.cfg.CoreURL || (s.cfg.CorePublicURL != "" && iss == s.cfg.CorePublicURL)
+}

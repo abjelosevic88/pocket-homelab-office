@@ -1,0 +1,60 @@
+# Pocket Office next to an ONLYOFFICE Document Server. The Document Server is
+# the engine that renders and edits; Pocket Office is the files, the people
+# and the places files come from. Set BASE_URL to the address browsers use.
+services:
+  office:
+    image: ghcr.io/abjelosevic88/pocket-homelab-office:latest
+    container_name: pocket-office
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Europe/Sarajevo
+      BASE_URL: https://office.example.com
+      SECURE_COOKIES: "true"
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Document Server: what browsers load the editor from, and the JWT secret it was started with.
+      ONLYOFFICE_URL: https://onlyoffice.example.com
+      ONLYOFFICE_INTERNAL_URL: http://onlyoffice:80
+      ONLYOFFICE_JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
+      # How Document Server reaches Pocket Office to fetch files and report saves.
+      CALLBACK_URL: http://pocket-office:8080
+      # Optional: Pocket Core (Nextcloud accounts and Pocket Documents links per person, Sign in with Pocket Core).
+      # CORE_URL: http://pocket-core:8080
+      # CORE_REGISTRATION_KEY: ${CORE_REGISTRATION_KEY}
+      # CORE_APP_URL: http://pocket-office:8080
+      # Optional: folders on the box people may attach (comma separated).
+      # FOLDER_ROOTS: /srv/shared
+    volumes:
+      - ./data:/data
+      # - /srv/shared:/srv/shared
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  onlyoffice:
+    image: onlyoffice/documentserver:9.4.0.1
+    container_name: onlyoffice
+    restart: unless-stopped
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET}
+      JWT_HEADER: AuthorizationJwt
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      TZ: Europe/Sarajevo
+    ports:
+      - "8081:80"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_lib:/var/lib/onlyoffice
+      - onlyoffice_db:/var/lib/postgresql
+
+volumes:
+  onlyoffice_data:
+  onlyoffice_logs:
+  onlyoffice_lib:
+  onlyoffice_db:

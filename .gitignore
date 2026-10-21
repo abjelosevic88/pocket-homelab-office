@@ -1,0 +1,15 @@
+/pocket-office
+/data/
+/dist/
+.env
+*.db
+*.db-wal
+*.db-shm
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+.DS_Store
+*.log
+/tmp/
+web/test-results/
+web/playwright-report/
