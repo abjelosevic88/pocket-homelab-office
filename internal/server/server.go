@@ -115,6 +115,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Timeout(10 * time.Minute))
 
+	r.Get("/pocket-ask.js", s.core.AskWidget("office"))
 	r.Get("/healthz", s.handleHealth)
 	r.Get("/readyz", s.handleReady)
 	if s.cfg.MetricsEnabled {
@@ -165,6 +166,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/sources/{id}/test", s.handleTestSource)
 			r.Get("/sources/{id}/ls", s.handleListDir)
 			r.Get("/sources/{id}/file", s.handleDownload)
+			r.Get("/sources/{id}/text", s.handleAskText)
 			r.Get("/sources/{id}/export", s.handleExport)
 			r.Post("/sources/{id}/upload", s.handleUpload)
 			r.Post("/sources/{id}/new", s.handleNewFile)
