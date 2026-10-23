@@ -1,6 +1,13 @@
 <p align="center"><img src="web/public/favicon.svg" width="72" alt=""></p>
 <h1 align="center">Pocket Office</h1>
 <p align="center">Word, Excel and PowerPoint files opened and edited in the browser — from your Nextcloud, your Pocket Documents archive, Pocket Files, any WebDAV server or a folder on the box.<br>One Go binary, one SQLite file, one volume, and an ONLYOFFICE Document Server doing the rendering.</p>
+<p align="center">
+  <a href="https://github.com/abjelosevic88/pocket-homelab-office/actions"><img src="https://github.com/abjelosevic88/pocket-homelab-office/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/abjelosevic88/pocket-homelab-office/pkgs/container/pocket-homelab-office"><img src="https://img.shields.io/badge/ghcr.io-amd64%20%7C%20arm64-blue" alt="image"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+</p>
+
+---
 
 Pocket Office does not try to draw a `.docx` itself. The part that has to be near-native — the layout engine,
 the ribbons, tracked changes, pivot tables, slide transitions — is **ONLYOFFICE Document Server**, the same
