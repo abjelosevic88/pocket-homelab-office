@@ -231,7 +231,7 @@ func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 // Pocket Files).
 func (s *Server) handleSourceOptions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	out := map[string]any{"core": s.core.Configured(), "folder_roots": s.cfg.FolderRoots}
+	out := map[string]any{"core": s.coreReady(), "folder_roots": s.cfg.FolderRoots}
 	if s.core.Configured() {
 		email := userFrom(ctx).Email
 		cctx, cancel := context.WithTimeout(ctx, 6*time.Second)

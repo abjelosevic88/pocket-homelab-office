@@ -5,7 +5,7 @@ import { api, V1 } from '../lib/api'
 import { useApp } from '../lib/app-context'
 import type { APIToken, Settings as S, Source, SourceKind, SourceOptions, User } from '../lib/types'
 import { ago, sourceLabel } from '../lib/format'
-import { Avatar, Confirm, CopyField, Field, Loading, Modal, Segmented, SettingRow, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
+import { Avatar, Confirm, CopyField, Field, Loading, Modal, NeedsCore, Segmented, SettingRow, Tabs, useAsync, useIsMobile, useToast } from '../components/ui'
 import { Icon } from '../components/icons'
 import { Select } from '../components/Select'
 import { PlaceIcon } from '../components/NewFile'
@@ -131,7 +131,8 @@ function PlacesTab() {
   const kinds: { kind: SourceKind; name: string; desc: string; disabled?: boolean; show?: boolean; init: Partial<Source> }[] = [
     { kind: 'nextcloud', name: 'Nextcloud', desc: o?.core_nextcloud?.ok ? `Your account through Pocket Core (${o.core_nextcloud.user})` : o?.core ? `Through Pocket Core: ${o.core_nextcloud_error || 'no account yet'}; or type an app password` : 'Address, username and an app password', init: { via_core: !!o?.core_nextcloud?.ok, folder: '' } },
     { kind: 'documents', name: 'Pocket Documents', desc: o?.core_documents ? 'Linked through Pocket Core' : o?.core ? `Through Pocket Core: ${o.core_documents_error || 'link is off'}; or type an API token` : 'Address and an API token', init: { via_core: !!o?.core_documents } },
-    { kind: 'files', name: 'Pocket Files', desc: o?.core_files ? 'Your files, linked through Pocket Core' : `Through Pocket Core: ${o?.core_files_error || 'link is off'}`, show: !!o?.core, init: { via_core: true, folder: '' } },
+    // Always listed; greyed out (with the hint under the grid) when this server has no Pocket Core.
+    { kind: 'files', name: 'Pocket Files', desc: o?.core_files ? 'Your files, linked through Pocket Core' : o?.core ? `Through Pocket Core: ${o.core_files_error || 'link is off'}` : 'Through Pocket Core', disabled: !o?.core, init: { via_core: true, folder: '' } },
     { kind: 'webdav', name: 'WebDAV', desc: 'Any WebDAV folder: another Nextcloud, ownCloud, a NAS…', init: {} },
     { kind: 'folder', name: 'Folder on the box', desc: o?.folder_roots?.length ? `Under ${o.folder_roots.join(', ')}` : 'None offered (FOLDER_ROOTS is empty)', disabled: !o?.folder_roots?.length, init: { folder: o?.folder_roots?.[0] || '' } },
   ]
@@ -169,6 +170,7 @@ function PlacesTab() {
             </button>
           ))}
         </div>
+        {o && !o.core && <NeedsCore />}
       </Section>
       {edit && <SourceDialog initial={edit} options={o} onClose={() => setEdit(null)} onSaved={async () => { setEdit(null); await reloadSources() }} />}
       {del && <Confirm title={`Remove “${del.name}”?`} action="Remove" message="Only the connection is removed; the files stay where they are." onCancel={() => setDel(null)} onConfirm={() => remove(del)} />}
@@ -178,7 +180,7 @@ function PlacesTab() {
 
 function SourceDialog({ initial, options, onClose, onSaved }: { initial: Partial<Source> & { kind: SourceKind; secret?: string }; options: SourceOptions | null; onClose: () => void; onSaved: () => void }) {
   const { toast } = useToast()
-  const [f, setF] = useState({ name: initial.name || '', url: initial.url || '', username: initial.username || '', secret: '', folder: initial.folder || '', via_core: !!initial.via_core })
+  const [f, setF] = useState({ name: initial.name || '', url: initial.url || '', username: initial.username || '', secret: '', folder: initial.folder || '', via_core: !!initial.via_core && !!options?.core })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const kind = initial.kind
@@ -199,11 +201,12 @@ function SourceDialog({ initial, options, onClose, onSaved }: { initial: Partial
     <Modal title={<span className="row"><PlaceIcon kind={kind} size={24} />{initial.id ? 'Edit' : 'Add'} {sourceLabel[kind]}</span>} onClose={onClose}>
       <form onSubmit={submit} className="stack">
         <Field label="Name" help="How it shows in the sidebar"><input value={f.name} onChange={set('name')} placeholder={sourceLabel[kind]} /></Field>
-        {(kind === 'nextcloud' || kind === 'documents') && options?.core && (
+        {(kind === 'nextcloud' || kind === 'documents') && (
           <Field label="Connect" group>
-            <Segmented value={f.via_core ? 'core' : 'direct'} onChange={v => setF(x => ({ ...x, via_core: v === 'core' }))} options={[{ value: 'core', label: 'Through Pocket Core' }, { value: 'direct', label: 'Type it in' }]} />
-            {f.via_core && !canCore && <span className="help danger-text">{kind === 'nextcloud' ? options.core_nextcloud_error || 'Pocket Core has no Nextcloud account for you' : options.core_documents_error || 'The Office → Documents link is off in Pocket Core'}</span>}
-            {f.via_core && canCore && kind === 'nextcloud' && <span className="help ok-text">✓ {options.core_nextcloud?.user} at {options.core_nextcloud?.url}</span>}
+            <Segmented value={f.via_core ? 'core' : 'direct'} onChange={v => setF(x => ({ ...x, via_core: v === 'core' }))} options={[{ value: 'core', label: 'Through Pocket Core', disabled: !options?.core }, { value: 'direct', label: 'Type it in' }]} />
+            {!options?.core && <NeedsCore />}
+            {options && f.via_core && !canCore && <span className="help danger-text">{kind === 'nextcloud' ? options.core_nextcloud_error || 'Pocket Core has no Nextcloud account for you' : options.core_documents_error || 'The Office → Documents link is off in Pocket Core'}</span>}
+            {options && f.via_core && canCore && kind === 'nextcloud' && <span className="help ok-text">✓ {options.core_nextcloud?.user} at {options.core_nextcloud?.url}</span>}
           </Field>
         )}
         {kind === 'nextcloud' && !f.via_core && <>
@@ -214,7 +217,7 @@ function SourceDialog({ initial, options, onClose, onSaved }: { initial: Partial
         {kind === 'nextcloud' && <Field label="Folder" help="A folder inside your files; empty = all of them"><input value={f.folder} onChange={set('folder')} placeholder="Documents" /></Field>}
         {kind === 'files' && <>
           <Field label="Connect" group>
-            {options?.core_files ? <span className="help ok-text">✓ Through Pocket Core, as you</span> : <span className="help danger-text">{options?.core_files_error || 'The Office → Files link is off in Pocket Core'}</span>}
+            {!options?.core ? <NeedsCore /> : options.core_files ? <span className="help ok-text">✓ Through Pocket Core, as you</span> : <span className="help danger-text">{options?.core_files_error || 'The Office → Files link is off in Pocket Core'}</span>}
           </Field>
           <Field label="Folder" help="A folder inside your Pocket Files; empty = all of them"><input value={f.folder} onChange={set('folder')} placeholder="Documents" /></Field>
         </>}

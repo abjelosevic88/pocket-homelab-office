@@ -186,7 +186,7 @@ iframe[name="po-collabora"] { background: #fff; }
 .folder-row .folder-ico { width: 22px; height: 22px; }
 
 /* ---------- settings bits ---------- */
-.acct-provider:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
+.acct-provider:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 .acct-provider .place-ico { margin-bottom: 4px; border-radius: 10px; }
 .acct-row .place-ico { border-radius: 10px; }
 .acct-row + .callout { margin: -4px 0 10px 48px; }

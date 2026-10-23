@@ -378,6 +378,14 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// coreReady reports whether this server is configured for Pocket Core and its
+// last registration went through; settings grey out Core-only choices otherwise.
+func (s *Server) coreReady() bool {
+	s.coreMu.Lock()
+	defer s.coreMu.Unlock()
+	return s.core.Configured() && s.coreOK
+}
+
 func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	s.coreMu.Lock()
 	ok, errStr := s.coreOK, s.coreErr
