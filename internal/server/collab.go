@@ -22,7 +22,7 @@ import (
 	"github.com/abjelosevic88/pocket-homelab-office/internal/store"
 )
 
-// Pocket Collaborator: any file can be sent for review as a PDF. The review
+// Pocket Review: any file can be sent for review as a PDF. The review
 // remembers a stable source reference, so a file sent again becomes a new
 // revision and the file list shows an "in review" badge. Reached through a
 // Pocket Core app link (reviews:read, reviews:write) as the person.
@@ -47,15 +47,15 @@ type collabHit struct {
 
 func (s *Server) collabFor(ctx context.Context, uid int64) (*collabLink, error) {
 	if !s.core.Configured() {
-		return nil, errNotConnected{Name: "Pocket Collaborator", Msg: "there is no Pocket Core on this box"}
+		return nil, errNotConnected{Name: "Pocket Review", Msg: "there is no Pocket Core on this box"}
 	}
-	lt, err := s.core.ActAs(ctx, s.userEmail(ctx, uid), "collaborator", collabScopes...)
+	lt, err := s.core.ActAs(ctx, s.userEmail(ctx, uid), "review", collabScopes...)
 	if err != nil {
 		var le *core.LinkError
 		if errors.As(err, &le) {
-			return nil, errNotConnected{Name: "Pocket Collaborator", Msg: "Pocket Collaborator through Pocket Core: " + firstNonEmpty(linkReason("Pocket Collaborator", le.Reason), le.Message)}
+			return nil, errNotConnected{Name: "Pocket Review", Msg: "Pocket Review through Pocket Core: " + firstNonEmpty(linkReason("Pocket Review", le.Reason), le.Message)}
 		}
-		return nil, fmt.Errorf("Pocket Collaborator through Pocket Core: %w", err)
+		return nil, fmt.Errorf("Pocket Review through Pocket Core: %w", err)
 	}
 	return &collabLink{base: strings.TrimRight(lt.URL, "/"), public: strings.TrimRight(firstNonEmpty(lt.PublicURL, lt.URL), "/"), token: lt.AccessToken}, nil
 }
@@ -95,7 +95,7 @@ func (l *collabLink) do(ctx context.Context, method, path string, body io.Reader
 			Error string `json:"error"`
 		}
 		_ = json.Unmarshal(raw, &e)
-		return fmt.Errorf("pocket collaborator: %s", firstNonEmpty(e.Error, http.StatusText(res.StatusCode)))
+		return fmt.Errorf("pocket review: %s", firstNonEmpty(e.Error, http.StatusText(res.StatusCode)))
 	}
 	if out != nil && len(raw) > 0 {
 		return json.Unmarshal(raw, out)
@@ -133,7 +133,7 @@ func (s *Server) sourceLabel(src *store.Source, p string) string {
 	return firstNonEmpty(src.Name, defaultSourceName(src.Kind)) + " · " + p
 }
 
-// decorateReviews attaches review badges to the files Collaborator knows.
+// decorateReviews attaches review badges to the files Pocket Review knows.
 func (s *Server) decorateReviews(ctx context.Context, uid int64, src *store.Source, b storage.Backend, files []fileView) {
 	if !s.core.Configured() || len(files) == 0 {
 		return
@@ -164,7 +164,7 @@ func (s *Server) decorateReviews(ctx context.Context, uid int64, src *store.Sour
 		Reviews map[string]collabHit `json:"reviews"`
 	}
 	if err := l.do(cctx, http.MethodGet, "/api/v1/reviews/lookup?"+q.Encode(), nil, "", &ans); err != nil {
-		s.log.Debug("collaborator lookup", "err", err)
+		s.log.Debug("review lookup", "err", err)
 		return
 	}
 	for ref, hit := range ans.Reviews {
@@ -259,7 +259,7 @@ func (s *Server) handleCollabSend(w http.ResponseWriter, r *http.Request) {
 	}
 	l, err := s.collabFor(ctx, u.ID)
 	if err != nil {
-		s.fail(w, err, "collaborator")
+		s.fail(w, err, "review")
 		return
 	}
 	// an open editor may hold newer bytes than storage: ask Document Server first
@@ -335,6 +335,6 @@ func (s *Server) moveReviewSource(ctx context.Context, uid int64, from *store.So
 	}
 	body, _ := json.Marshal(map[string]string{"source_ref": s.sourceRef(to, tb, toPath), "source_url": s.sourceURL(to, tb, toPath), "source_label": s.sourceLabel(to, toPath)})
 	if err := l.do(cctx, http.MethodPut, "/api/v1/reviews/"+strconv.FormatInt(hit.ID, 10), bytes.NewReader(body), "application/json", nil); err != nil {
-		s.log.Debug("collaborator: move source", "err", err)
+		s.log.Debug("review: move source", "err", err)
 	}
 }

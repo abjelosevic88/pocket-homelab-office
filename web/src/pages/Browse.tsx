@@ -75,7 +75,7 @@ export default function Browse() {
     const out: MenuItem[] = [{ label: e.is_dir ? 'Open folder' : e.edit ? 'Edit' : e.opens ? 'View' : 'Download', icon: e.is_dir ? 'folder-open' : e.edit ? 'edit' : e.opens ? 'eye' : 'download', onSelect: () => open(e) }]
     if (!e.is_dir) {
       if (src.kind === 'drafts') out.push({ label: 'Save to…', icon: 'folder-plus', onSelect: () => setDlg({ kind: 'saveto', e }) })
-      if (e.opens && settings?.collab?.available) out.push({ label: inReview ? 'Send new revision to Collaborator…' : 'Send for review…', icon: 'send', onSelect: () => setDlg({ kind: 'collab', e }) })
+      if (e.opens && settings?.collab?.available) out.push({ label: inReview ? 'Send new revision to Pocket Review…' : 'Send for review…', icon: 'send', onSelect: () => setDlg({ kind: 'collab', e }) })
       if (e.review) out.push({ label: 'Open the review', icon: 'external', onSelect: () => window.open(e.review!.url, '_blank', 'noopener') })
       out.push('sep', { label: 'Download', icon: 'download', onSelect: () => download(fileURL(e)) })
       if (e.opens && e.ext !== 'pdf') out.push({ label: 'Download as PDF', icon: 'file', onSelect: () => download(`${V1}/sources/${id}/export${qs({ path: e.path, to: 'pdf' })}`) })

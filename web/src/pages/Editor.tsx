@@ -132,7 +132,7 @@ export default function Editor() {
     const out: MenuItem[] = [{ label: 'Download original', icon: 'download', onSelect: () => download(`${V1}/sources/${id}/file${qs({ path })}`) }]
     if (res && (res.exports?.length ?? 0) > 0) out.push({ label: `Download as… (${res.exports.length} types)`, icon: 'layers', onSelect: () => setDl(true) })
     if (res?.collab?.available) {
-      out.push('sep', { label: inReview ? 'Send new revision to Collaborator…' : 'Send for review in Collaborator…', icon: 'send', onSelect: () => setCollab(true) })
+      out.push('sep', { label: inReview ? 'Send new revision to Pocket Review…' : 'Send for review in Pocket Review…', icon: 'send', onSelect: () => setCollab(true) })
       if (res.file.review) out.push({ label: 'Open the review', icon: 'external', onSelect: () => window.open(res.file.review!.url, '_blank', 'noopener') })
     }
     if (res && res.mode === 'view' && res.convertible) out.push('sep', { label: `Edit a copy as .${res.editable_as}`, icon: 'copy', onSelect: () => setConfirmCopy(true) })

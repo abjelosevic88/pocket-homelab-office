@@ -73,8 +73,8 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 - On phones the free Document Server views; an **Edit** button opens the full desktop editor on the phone.
 - Light and dark theme (follows the system unless set), passed on to the editor.
 
-**Reviews with Pocket Collaborator**
-- Any file can be sent for review: it is rendered to PDF and lands in Pocket Collaborator with a link back; a file
+**Reviews with Pocket Review**
+- Any file can be sent for review: it is rendered to PDF and lands in Pocket Review with a link back; a file
   already in review gets a new revision. Files in review carry an *In review* badge in the list and the editor that
   opens the review. Works for drafts too, and follows the draft when it is saved into a place.
 

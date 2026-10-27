@@ -131,7 +131,7 @@ span.ellipsis { min-width: 0; }
   .col-act { width: 44px; }
 }
 
-/* ---------- review badge (Pocket Collaborator) ---------- */
+/* ---------- review badge (Pocket Review) ---------- */
 .review-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; height: 22px; padding: 0 9px; border-radius: 999px; background: color-mix(in srgb, var(--review) 12%, transparent); color: var(--text-2); white-space: nowrap; flex-shrink: 0; text-decoration: none !important; }
 .review-badge:hover { background: color-mix(in srgb, var(--review) 20%, transparent); }
 .review-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--review); }

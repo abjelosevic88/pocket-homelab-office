@@ -7,16 +7,16 @@ import { Icon } from './icons'
 
 export const reviewStatusLabel: Record<string, string> = { draft: 'Review draft', in_review: 'In review', changes_requested: 'Changes requested', approved: 'Approved', rejected: 'Rejected', cancelled: 'Review cancelled' }
 
-/** The badge next to a file that is in Pocket Collaborator; opens the review. */
+/** The badge next to a file that is in Pocket Review; opens the review. */
 export function ReviewBadge({ review, small }: { review?: ReviewHit | null; small?: boolean }) {
   if (!review) return null
   const open = review.open_threads > 0 ? ` · ${review.open_threads} open` : ''
-  return <a className={`review-badge ${review.status} ${small ? 'sm' : ''}`} href={review.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} title={`${review.title} — v${review.revisions}, ${reviewStatusLabel[review.status] || review.status}, updated ${ago(review.updated_at)}. Open in Pocket Collaborator`}>
+  return <a className={`review-badge ${review.status} ${small ? 'sm' : ''}`} href={review.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} title={`${review.title} — v${review.revisions}, ${reviewStatusLabel[review.status] || review.status}, updated ${ago(review.updated_at)}. Open in Pocket Review`}>
     <span className="dot" />{reviewStatusLabel[review.status] || review.status}{!small && open}
   </a>
 }
 
-/** Send a file to Pocket Collaborator: a new review or a new revision. */
+/** Send a file to Pocket Review: a new review or a new revision. */
 export function SendToCollab({ sourceId, file, onClose, beforeSend, onSent }: { sourceId: number | string; file: Entry; onClose: () => void; beforeSend?: () => Promise<void>; onSent?: (hit: { url: string; created: boolean; revision: number }) => void }) {
   const { toast } = useToast()
   const [status, setStatus] = useState<{ available: boolean; error?: string; review?: ReviewHit | null } | null>(null)
@@ -32,17 +32,17 @@ export function SendToCollab({ sourceId, file, onClose, beforeSend, onSent }: { 
     try {
       if (beforeSend) await beforeSend()
       const r = await api.post<{ url: string; created: boolean; revision: number }>(`${V1}/sources/${sourceId}/collab/send`, { path: file.path, mode: existing ? mode : 'new', title: f.title, description: f.description, note: f.note, due_date: f.due_date, start: f.start })
-      setDone(r); onSent?.(r); toast(r.created ? 'Review started in Pocket Collaborator' : `Sent as revision v${r.revision}`)
+      setDone(r); onSent?.(r); toast(r.created ? 'Review started in Pocket Review' : `Sent as revision v${r.revision}`)
     } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   const isPDF = /\.pdf$/i.test(file.name)
   return (
     <Modal title={`Send “${file.name}” for review`} onClose={onClose}>
-      {!status && <div className="loading"><span className="spinner" /> Checking Pocket Collaborator…</div>}
-      {status && !status.available && <div className="callout danger"><Icon name="alert" size={15} /><span>Pocket Collaborator is not reachable: {status.error || 'not connected through Pocket Core'}.</span></div>}
+      {!status && <div className="loading"><span className="spinner" /> Checking Pocket Review…</div>}
+      {status && !status.available && <div className="callout danger"><Icon name="alert" size={15} /><span>Pocket Review is not reachable: {status.error || 'not connected through Pocket Core'}.</span></div>}
       {done && <div className="stack">
         <div className="callout success"><Icon name="check-circle" size={16} className="ok-text" /><span>{done.created ? 'A review was created' : `Revision v${done.revision} was added`}{isPDF ? '' : ' from a PDF rendering of this file'}.</span></div>
-        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Close</button><a className="btn primary" href={done.url} target="_blank" rel="noreferrer">Open in Collaborator<Icon name="external" size={14} /></a></div>
+        <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Close</button><a className="btn primary" href={done.url} target="_blank" rel="noreferrer">Open in Pocket Review<Icon name="external" size={14} /></a></div>
       </div>}
       {status?.available && !done && <form onSubmit={send} className="stack">
         {existing && <Field label="This file is already in review" group>
@@ -58,7 +58,7 @@ export function SendToCollab({ sourceId, file, onClose, beforeSend, onSent }: { 
           </div>
         </>}
         {existing && mode === 'revision' && <Field label="What changed?"><input value={f.note} onChange={e => setF(x => ({ ...x, note: e.target.value }))} placeholder="Optional note for the reviewers" /></Field>}
-        <p className="muted small">{isPDF ? 'The PDF is sent as it is.' : 'Collaborator reviews PDFs: the file is rendered to PDF by the editor engine and sent; the original stays here and the review links back to it.'}{!existing && ' People and roles are added in Collaborator.'}</p>
+        <p className="muted small">{isPDF ? 'The PDF is sent as it is.' : 'Pocket Review works on PDFs: the file is rendered to PDF by the editor engine and sent; the original stays here and the review links back to it.'}{!existing && ' People and roles are added in Pocket Review.'}</p>
         {err && <div className="callout danger"><Icon name="alert" size={15} /><span>{err}</span></div>}
         <div className="form-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy}>{busy ? 'Sending…' : existing && mode === 'revision' ? 'Send revision' : 'Send for review'}</button></div>
       </form>}
