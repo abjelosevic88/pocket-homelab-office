@@ -18,6 +18,7 @@ import (
 
 var linkOffers = []core.Offer{
 	{Scope: "files:read", Name: "See your files", Description: "List the places your files live, browse and search them, and get a link that opens a file in Pocket Office."},
+	{Scope: "office:open", Name: "Open documents in Pocket Office", Description: "Check that Pocket Office can open your documents, so another app (Pocket Files) can offer to edit them here."},
 }
 
 // linkUses: Pocket Documents and Pocket Files are places files come from.
@@ -42,6 +43,7 @@ var linkRoutes = []linkRoute{
 	{"GET", regexp.MustCompile(`^/api/v1/auth/me$`), ""},
 	{"GET", regexp.MustCompile(`^/api/v1/(sources|recent|search|dashboard|formats)$`), "files:read"},
 	{"GET", regexp.MustCompile(`^/api/v1/sources/\d+/(ls|file)$`), "files:read"},
+	{"GET", regexp.MustCompile(`^/api/v1/integrations/files$`), "office:open"},
 }
 
 var errLinkScope = errors.New("outside the link's scope")

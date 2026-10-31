@@ -13,6 +13,7 @@ import Login from './pages/Login'
 import Home from './pages/Home'
 import Browse from './pages/Browse'
 import Editor from './pages/Editor'
+import OpenFiles from './pages/OpenFiles'
 import Settings from './pages/Settings'
 
 function Gate({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ function App() {
       <Route path="/login" element={<Login mode="login" />} />
       <Route path="/setup" element={<Login mode="setup" />} />
       <Route path="/edit/:id" element={<Gate><ErrorBoundary where="editor"><Editor /></ErrorBoundary></Gate>} />
+      <Route path="/open/files" element={<Gate><ErrorBoundary where="editor"><OpenFiles /></ErrorBoundary></Gate>} />
       <Route path="/settings/:tab?" element={<Gate><ErrorBoundary where="settings"><Settings /></ErrorBoundary></Gate>} />
       <Route element={<Gate><Layout /></Gate>}>
         <Route path="/" element={<Home />} />

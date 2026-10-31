@@ -158,6 +158,8 @@ func (s *Server) Router() http.Handler {
 			r.Post("/drafts", s.handleUploadDraft)
 			r.Post("/drafts/save", s.handleSaveDraft)
 
+			r.Get("/integrations/files", s.handleFilesIntegration)
+			r.Post("/sources/files/ensure", s.handleEnsureFilesSource)
 			r.Get("/sources", s.handleListSources)
 			r.Post("/sources", s.handleCreateSource)
 			r.Get("/sources/options", s.handleSourceOptions)

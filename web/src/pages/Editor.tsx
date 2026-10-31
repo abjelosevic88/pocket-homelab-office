@@ -35,7 +35,10 @@ export default function Editor() {
   const [params] = useSearchParams()
   const path = params.get('path') || ''
   const engineParam = (params.get('engine') || '') as Engine | ''
+  // Opened inside another Pocket app (Pocket Files): "back" closes that app's window instead.
+  const embed = params.get('embed') === '1'
   const navigate = useNavigate()
+  const leave = () => { if (embed) window.parent.postMessage({ type: 'pocket-office:close' }, '*'); else navigate(backTo(id!, path)) }
   const { sources, theme } = useApp()
   const { toast } = useToast()
   const [res, setRes] = useState<OpenResult | null>(null)
@@ -69,7 +72,7 @@ export default function Editor() {
         const events = {
           onAppReady: () => { if (!dead) setState('ready') },
           onDocumentStateChange: (e: { data: boolean }) => { if (!dead) setState(e.data ? 'saving' : 'ready') },
-          onRequestClose: () => { if (!dead) navigate(backTo(id!, path)) },
+          onRequestClose: () => { if (!dead) leave() },
           onError: (e: { data: { errorCode: number; errorDescription: string } }) => { if (!dead) { setErr(e.data?.errorDescription || 'Document Server reported an error'); setState('error') } },
           onWarning: (e: { data: { warningDescription: string } }) => { if (!dead) toast(e.data?.warningDescription || 'Warning from Document Server', 'err') },
           onRequestSaveAs: () => { if (!dead) toast('Use the file menu’s Download to save a copy') },
@@ -103,7 +106,7 @@ export default function Editor() {
           break
         case 'Doc_ModifiedStatus': setState(m.Values?.Modified ? 'saving' : 'ready'); break
         case 'Action_Save_Resp': saveWaiters.current.splice(0).forEach(fn => fn()); break
-        case 'UI_Close': case 'close': navigate(backTo(id!, path)); break
+        case 'UI_Close': case 'close': leave(); break
         case 'Action_Load_Resp': if (m.Values?.success === false) { setErr(String(m.Values?.errorMsg || 'Collabora refused the document')); setState('error') }; break
       }
     }
@@ -121,7 +124,7 @@ export default function Editor() {
     post('Action_Save', { DontTerminateEdit: true, DontSaveIfUnmodified: true, Notify: true })
   }), [res])
 
-  const switchEngine = (e: Engine) => navigate(`/edit/${id}${qs({ path, engine: e })}`, { replace: true })
+  const switchEngine = (e: Engine) => navigate(`/edit/${id}${qs({ path, engine: e, embed: embed ? '1' : '' })}`, { replace: true })
 
   // Leaving the page: Document Server saves on its own; the bar just goes back.
   const name = res?.file.name || path.split('/').pop() || ''
@@ -153,13 +156,15 @@ export default function Editor() {
 
   const editCopy = async () => {
     setConfirmCopy(false)
-    try { const n = await api.post<Entry>(`${V1}/sources/${id}/edit-copy`, { path }); navigate(`/edit/${id}${qs({ path: n.path })}`) } catch (e) { toast((e as Error).message, 'err') }
+    try { const n = await api.post<Entry>(`${V1}/sources/${id}/edit-copy`, { path }); navigate(`/edit/${id}${qs({ path: n.path, embed: embed ? '1' : '' })}`) } catch (e) { toast((e as Error).message, 'err') }
   }
 
   return (
     <div className={`editor-page ${phone ? 'phone' : ''}`}>
       <header className="editor-bar">
-        <Link className="btn ghost sm back" to={backTo(id!, path)} title="Back to files" aria-label="Back to files"><Icon name="chevron-left" size={17} />{phone ? '' : 'Files'}</Link>
+        {embed
+          ? <button type="button" className="btn ghost sm back" onClick={leave} title="Close" aria-label="Close"><Icon name="x" size={17} />{phone ? '' : 'Close'}</button>
+          : <Link className="btn ghost sm back" to={backTo(id!, path)} title="Back to files" aria-label="Back to files"><Icon name="chevron-left" size={17} />{phone ? '' : 'Files'}</Link>}
         <KindBadge kind={res?.kind} ext={res?.ext || path.split('.').pop()} />
         <span className="editor-title grow">
           <span className="ellipsis">{name}</span>
@@ -174,7 +179,7 @@ export default function Editor() {
       </header>
       <div className="editor-host">
         {state === 'loading' && !err && <div className="editor-overlay"><Loading text={res ? `Starting the ${kindLabel[res.kind].toLowerCase()} editor…` : 'Opening…'} /></div>}
-        {err && <div className="editor-overlay"><div className="editor-error"><span className="empty-ico"><Icon name="alert" size={22} /></span><h3>Could not open {name}</h3><p className="muted">{err}</p><div className="row"><button type="button" className="btn primary" onClick={() => location.reload()}>Try again</button><Link className="btn" to={backTo(id!, path)}>Back to files</Link></div></div></div>}
+        {err && <div className="editor-overlay"><div className="editor-error"><span className="empty-ico"><Icon name="alert" size={22} /></span><h3>Could not open {name}</h3><p className="muted">{err}</p><div className="row"><button type="button" className="btn primary" onClick={() => location.reload()}>Try again</button>{embed ? <button type="button" className="btn" onClick={leave}>Close</button> : <Link className="btn" to={backTo(id!, path)}>Back to files</Link>}</div></div></div>}
         <div ref={onlyOfficeHost} className="onlyoffice-host" hidden={res?.engine === 'collabora'} />
         {res?.engine === 'collabora' && <>
           <form ref={coForm} method="post" action={res.collabora!.action_url} target="po-collabora" style={{ display: 'none' }}>
