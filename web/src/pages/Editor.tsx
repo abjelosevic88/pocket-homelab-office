@@ -73,7 +73,7 @@ export default function Editor() {
           onAppReady: () => { if (!dead) setState('ready') },
           onDocumentStateChange: (e: { data: boolean }) => { if (!dead) setState(e.data ? 'saving' : 'ready') },
           onRequestClose: () => { if (!dead) leave() },
-          onError: (e: { data: { errorCode: number; errorDescription: string } }) => { if (!dead) { setErr(e.data?.errorDescription || 'Document Server reported an error'); setState('error') } },
+          onError: (e: { data: { errorCode: number; errorDescription: string } }) => { if (!dead) { setErr(e.data?.errorDescription?.replace(/<br\s*\/?>/gi, ' ').trim() || 'Document Server reported an error'); setState('error') } },
           onWarning: (e: { data: { warningDescription: string } }) => { if (!dead) toast(e.data?.warningDescription || 'Warning from Document Server', 'err') },
           onRequestSaveAs: () => { if (!dead) toast('Use the file menu’s Download to save a copy') },
         }
