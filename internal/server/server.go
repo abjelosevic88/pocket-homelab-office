@@ -190,6 +190,10 @@ func (s *Server) Router() http.Handler {
 			r.Put("/users/{id}", s.handleUpdateUser)
 			r.Delete("/users/{id}", s.handleDeleteUser)
 			r.Get("/system", s.handleSystemInfo)
+
+			r.Get("/export.zip", s.handleExportZip)
+			r.Post("/import", s.handleImportZip)
+			r.Get(strings.TrimPrefix(core.PortablePath, "/api/v1"), portable.Handler())
 		})
 	})
 
@@ -308,6 +312,7 @@ func (s *Server) manifest() core.Manifest {
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "OFFICE",
 		Publishes: []string{"office.opened", "office.saved", "office.created", "office.sent_for_review"},
 		Offers:    linkOffers,
+		Portable:  portable,
 		Uses:      linkUses,
 		Services:  serviceUses,
 	}
