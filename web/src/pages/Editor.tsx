@@ -29,6 +29,25 @@ function loadScript(src: string): Promise<void> {
   return p
 }
 
+/** Waits while the Document Server is still starting (a minute or more on a Raspberry Pi after a
+ *  restart): its /healthcheck answers "true" once it can open documents. Only for one served from
+ *  this app's own address (BASE_URL/ds), which the browser may ask; gives up after 5 minutes. */
+async function waitForDocServer(apiJs: string, starting: (on: boolean) => void, dead: () => boolean) {
+  let base: URL
+  try { base = new URL(apiJs.replace(/\/web-apps\/.*$/, '') + '/healthcheck', location.href) } catch { return }
+  if (base.origin !== location.origin) return
+  const until = Date.now() + 5 * 60_000
+  for (let first = true; Date.now() < until && !dead(); first = false) {
+    try {
+      const r = await fetch(base, { cache: 'no-store' })
+      if (r.ok && (await r.text()).trim() === 'true') break
+    } catch { /* not answering yet */ }
+    if (first) starting(true)
+    await new Promise(res => setTimeout(res, 4000))
+  }
+  starting(false)
+}
+
 /** The editor page: Document Server's editor filling the window under a slim bar. */
 export default function Editor() {
   const { id } = useParams()
@@ -44,6 +63,7 @@ export default function Editor() {
   const [res, setRes] = useState<OpenResult | null>(null)
   const [err, setErr] = useState('')
   const [state, setState] = useState<'loading' | 'ready' | 'saving' | 'error'>('loading')
+  const [dsStarting, setDsStarting] = useState(false)
   const [confirmCopy, setConfirmCopy] = useState(false)
   const [dl, setDl] = useState(false)
   const [saveTo, setSaveTo] = useState(false)
@@ -67,6 +87,8 @@ export default function Editor() {
         setRes(r)
         if (r.engine_note) toast(r.engine_note)
         if (r.engine === 'collabora') return // the form below posts into the frame
+        await waitForDocServer(r.api_js!, setDsStarting, () => dead)
+        if (dead) return
         await loadScript(r.api_js!)
         if (dead || !window.DocsAPI) return
         const events = {
@@ -178,7 +200,7 @@ export default function Editor() {
         <MenuButton label="More" className="btn ghost icon-only sm" align="right" width={250} items={moreItems}><Icon name="more" size={17} /></MenuButton>
       </header>
       <div className="editor-host">
-        {state === 'loading' && !err && <div className="editor-overlay"><Loading text={res ? `Starting the ${kindLabel[res.kind].toLowerCase()} editor…` : 'Opening…'} /></div>}
+        {state === 'loading' && !err && <div className="editor-overlay"><Loading text={dsStarting ? 'The editor is starting. After a restart it takes a minute or two (longer on a Raspberry Pi); this opens by itself.' : res ? `Starting the ${kindLabel[res.kind].toLowerCase()} editor…` : 'Opening…'} /></div>}
         {err && <div className="editor-overlay"><div className="editor-error"><span className="empty-ico"><Icon name="alert" size={22} /></span><h3>Could not open {name}</h3><p className="muted">{err}</p><div className="row"><button type="button" className="btn primary" onClick={() => location.reload()}>Try again</button>{embed ? <button type="button" className="btn" onClick={leave}>Close</button> : <Link className="btn" to={backTo(id!, path)}>Back to files</Link>}</div></div></div>}
         <div ref={onlyOfficeHost} className="onlyoffice-host" hidden={res?.engine === 'collabora'} />
         {res?.engine === 'collabora' && <>
