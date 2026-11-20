@@ -55,8 +55,11 @@ type Config struct {
 	// values; an admin can change them in Settings → Document Server.
 	OnlyOfficeURL         string // what browsers load the editor from
 	OnlyOfficeInternalURL string // how this server reaches it (conversion); defaults to OnlyOfficeURL
-	OnlyOfficeJWTSecret   string
-	OnlyOfficeJWTHeader   string
+	// DSProxied: no public address for the Document Server, so browsers load it through this app at
+	// BASE_URL/ds (one name and certificate for both; see server/dsproxy.go).
+	DSProxied           bool
+	OnlyOfficeJWTSecret string
+	OnlyOfficeJWTHeader string
 	// CallbackURL is how Document Server reaches this app to fetch files and
 	// report saves. Defaults to CORE_APP_URL, then BASE_URL.
 	CallbackURL string
@@ -163,8 +166,14 @@ func Load() (*Config, error) {
 	if c.CallbackURL == "" {
 		c.CallbackURL = c.CoreAppURL
 	}
+	if placeholderURL(c.OnlyOfficeURL) { // the sample's onlyoffice.example.com, kept by an install
+		c.OnlyOfficeURL = ""
+	}
 	if c.OnlyOfficeInternalURL == "" {
 		c.OnlyOfficeInternalURL = c.OnlyOfficeURL
+	}
+	if c.OnlyOfficeURL == "" && c.OnlyOfficeInternalURL != "" && c.BaseURL != "" {
+		c.OnlyOfficeURL, c.DSProxied = c.BaseURL+"/ds", true
 	}
 	for _, p := range strings.Split(env("FOLDER_ROOTS", ""), ",") {
 		p = strings.TrimSpace(p)
@@ -195,3 +204,9 @@ func Load() (*Config, error) {
 
 // Addr returns host:port.
 func (c *Config) Addr() string { return fmt.Sprintf("%s:%d", c.Host, c.Port) }
+
+// placeholderURL: an address from the samples (example.com, example.org…), never a real server.
+func placeholderURL(u string) bool {
+	h := strings.ToLower(u)
+	return strings.Contains(h, ".example.com") || strings.Contains(h, ".example.org") || strings.Contains(h, ".example.net") || strings.Contains(h, "//example.com")
+}

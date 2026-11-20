@@ -198,7 +198,7 @@ func (s *Server) Router() http.Handler {
 	})
 
 	r.NotFound(s.handleSPA)
-	return r
+	return s.withDSProxy(r) // in front of the router's timeout: the editor's websocket lasts as long as the editing
 }
 
 // ---------- helpers ----------
