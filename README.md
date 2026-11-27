@@ -84,8 +84,8 @@ close it. Co-editing, autosave, comments and version-safe saves come with it.
 - With Pocket Core: registered as `office`, Nextcloud credentials and the Pocket Documents and Pocket Files links per person, events
   `office.opened` / `office.saved` / `office.created`, `files:read` offered to other apps, Core device tokens
   accepted as API tokens.
-- Pocket Search finds your documents by name (`!office`, `!doc`, `!sheet`) and opens them in the editor; Pocket Hub
-  shows the documents you opened last.
+- Pocket Search finds your documents by name (`!office`, `!doc`, `!sheet`) and opens them in the editor (files in
+  Pocket Documents and Pocket Files are found by those apps); Pocket Hub shows the documents you opened last.
 - JSON API with bearer tokens (`po_…`), `/dashboard` for a Homepage widget, `/healthz`, `/metrics`.
 - Document Server is set up once by the admin (Settings → Document Server has a **Test** that proves the
   round trip: health, and Document Server fetching a file from this app and converting it).

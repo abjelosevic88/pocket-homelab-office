@@ -32,6 +32,7 @@ type capOffice struct {
 	users    map[string]int64  // email → id
 	mu       sync.Mutex
 	manifest map[string]any
+	calls    []string // every path Core was asked for
 }
 
 func newCapOffice(t *testing.T) *capOffice {
@@ -41,6 +42,9 @@ func newCapOffice(t *testing.T) *capOffice {
 		"read": "files:read", "open": "office:open"}
 	coreSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		o.mu.Lock()
+		o.calls = append(o.calls, r.URL.Path)
+		o.mu.Unlock()
 		switch r.URL.Path {
 		case "/api/v1/apps/register":
 			var m map[string]any
@@ -248,6 +252,74 @@ func TestPocketSearchPlaces(t *testing.T) {
 	}
 	if d := time.Since(start); d > 3*time.Second {
 		t.Fatalf("the search waited %s for a slow place", d)
+	}
+}
+
+// Pocket Documents and Pocket Files places are left to those apps: the search
+// never reads them and leaves out the recent files in them, while a WebDAV
+// place Office reaches itself is searched. GET /search still reads them all.
+func TestPocketSearchSkipsOtherApps(t *testing.T) {
+	o := newCapOffice(t)
+	ctx, uid, alice := context.Background(), o.users["alice@example.com"], o.tokens["alice@example.com"]
+	now := time.Now()
+	my := o.file(t, "alice@example.com", "Plan.docx", now)
+
+	var mu sync.Mutex
+	docsAsked := 0
+	docs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		docsAsked++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"count":1,"results":[{"id":4,"title":"Plan in Documents","original_name":"plan.docx","modified_at":%q}]}`, now.UTC().Format(time.RFC3339))
+	}))
+	t.Cleanup(docs.Close)
+	dav := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PROPFIND" {
+			http.Error(w, "not here", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		w.WriteHeader(http.StatusMultiStatus)
+		fmt.Fprint(w, `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`+
+			`<d:response><d:href>/dav/Plan%20on%20WebDAV.docx</d:href><d:propstat><d:prop><d:getetag>"1"</d:getetag><d:getcontentlength>1</d:getcontentlength><d:resourcetype/></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>`)
+	}))
+	t.Cleanup(dav.Close)
+	place := func(src *store.Source) int64 {
+		src.UserID = uid
+		if err := o.s.store.CreateSource(ctx, src); err != nil {
+			t.Fatal(err)
+		}
+		return src.ID
+	}
+	docsID := place(&store.Source{Kind: "documents", Name: "Archive", URL: docs.URL, Secret: "pd_token"})
+	filesID := place(&store.Source{Kind: "files", Name: "Pocket Files", ViaCore: true})
+	place(&store.Source{Kind: "webdav", Name: "Server", URL: dav.URL + "/dav", Username: "a", Secret: "b"})
+	o.opened(t, "alice@example.com", my, "Plan.docx", now)
+	o.opened(t, "alice@example.com", docsID, "4/Plan in Documents.docx", now)
+	o.opened(t, "alice@example.com", filesID, "Work/Plan in Files.docx", now)
+	o.mu.Lock()
+	o.calls = nil
+	o.mu.Unlock()
+
+	got := o.search(t, alice, "plan")
+	if titles(got) != "Plan.docx | Plan on WebDAV.docx" {
+		t.Fatalf("search: %s", titles(got))
+	}
+	mu.Lock()
+	asked := docsAsked
+	mu.Unlock()
+	o.mu.Lock()
+	calls := strings.Join(o.calls, " ")
+	o.mu.Unlock()
+	if asked != 0 || strings.Contains(calls, "/api/v1/links/token") {
+		t.Fatalf("the search reached into Pocket Documents (%d requests) or Pocket Files (Core calls: %s)", asked, calls)
+	}
+
+	// GET /search is as it was: every place, Pocket Documents included
+	code, body := officeCall(o.h, alice, "GET", "/api/v1/search?q=plan", "", nil)
+	if code != 200 || !strings.Contains(string(body), "Plan in Documents.docx") || !strings.Contains(string(body), "Plan on WebDAV.docx") {
+		t.Fatalf("GET /search: %d %s", code, body)
 	}
 }
 

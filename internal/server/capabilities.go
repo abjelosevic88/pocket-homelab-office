@@ -23,12 +23,18 @@ import (
 // person's places (My files, Drafts, server folders, Nextcloud, WebDAV,
 // Pocket Documents, Pocket Files). The search reads them the way GET /search
 // does, through the same places with the same limits, but stops walking in
-// time for Pocket Search, which waits 6 seconds for an app. The widget reads
+// time for Pocket Search, which waits 6 seconds for an app, and leaves out
+// the Pocket Documents and Pocket Files places: those apps answer Pocket
+// Search themselves, and the same file would show twice. The widget reads
 // only the recent list kept here.
 
 // pocketSearchWalk is how long the search walks the places; what is found
 // by then is the answer (GET /search walks for up to 45 seconds).
 var pocketSearchWalk = 4 * time.Second
+
+// searchedElsewhere are the kinds of place whose files Pocket Search finds in
+// the app they live in (Pocket Documents, Pocket Files), not here.
+var searchedElsewhere = map[string]bool{"documents": true, "files": true}
 
 const widgetDocs = 5 // rows of the widget
 
@@ -119,7 +125,9 @@ func openedAt(s string) time.Time {
 // the person opened lately come first, newest first, from the recent list
 // kept here; then what GET /search finds in their places, newest change
 // first, as far as the walk got in pocketSearchWalk. A place that does not
-// answer is left out, as GET /search leaves it out.
+// answer is left out, as GET /search leaves it out; Pocket Documents and
+// Pocket Files places are never read (searchedElsewhere), recent files in
+// them included.
 func (s *Server) pocketSearch(r *http.Request, q string, limit int) ([]core.SearchItem, error) {
 	ctx, uid := r.Context(), me(r)
 	lq := strings.ToLower(q)
@@ -134,7 +142,7 @@ func (s *Server) pocketSearch(r *http.Request, q string, limit int) ([]core.Sear
 	seen := map[string]bool{}
 	out := make([]core.SearchItem, 0, limit)
 	for _, rv := range recent {
-		if !office.Opens(rv.Name) || !strings.Contains(strings.ToLower(rv.Name), lq) {
+		if searchedElsewhere[rv.SourceKind] || !office.Opens(rv.Name) || !strings.Contains(strings.ToLower(rv.Name), lq) {
 			continue
 		}
 		id := docID(rv.SourceID, rv.Path)
@@ -152,7 +160,7 @@ func (s *Server) pocketSearch(r *http.Request, q string, limit int) ([]core.Sear
 	}
 	wctx, cancel := context.WithTimeout(ctx, pocketSearchWalk)
 	defer cancel()
-	hits, err := s.searchNames(wctx, uid, q)
+	hits, err := s.searchNames(wctx, uid, q, searchedElsewhere)
 	if err != nil {
 		return nil, err
 	}

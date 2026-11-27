@@ -504,7 +504,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
-	hits, err := s.searchNames(ctx, me(r), r.URL.Query().Get("q"))
+	hits, err := s.searchNames(ctx, me(r), r.URL.Query().Get("q"), nil)
 	if err != nil {
 		s.fail(w, err, "sources")
 		return
@@ -515,8 +515,9 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 // searchNames finds the files whose name has q in a person's sources,
 // newest first, at most 200: Pocket Documents searches itself, every other
 // source has its folder tree walked (at most 4000 entries each). It stops
-// walking when ctx ends and answers what it found by then.
-func (s *Server) searchNames(ctx context.Context, uid int64, raw string) ([]searchHit, error) {
+// walking when ctx ends and answers what it found by then. Sources whose
+// kind is in skip are left out.
+func (s *Server) searchNames(ctx context.Context, uid int64, raw string, skip map[string]bool) ([]searchHit, error) {
 	q := strings.ToLower(strings.TrimSpace(raw))
 	srcs, err := s.store.ListSources(ctx, uid)
 	if err != nil {
@@ -524,6 +525,9 @@ func (s *Server) searchNames(ctx context.Context, uid int64, raw string) ([]sear
 	}
 	hits := []searchHit{}
 	for _, src := range srcs {
+		if skip[src.Kind] {
+			continue
+		}
 		b, err := s.backendFor(ctx, &src)
 		if err != nil {
 			continue

@@ -105,7 +105,7 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | GET | `/recent` · DELETE `/recent?source=&path=` | lately opened files |
 | GET | `/search?q=` | a name across every place (folder trees walked, at most a few thousand entries each) |
 | GET | `/dashboard` | `{sources, open_now, opened_week, last, recent, document_server}` for a dashboard widget |
-| GET | `/pocket/search?q=&limit=` | Pocket Search: documents by name, the ones you opened lately first, then what `/search` finds in your places within 4 seconds. Each opens in the editor (`/edit/{source}?path=`) |
+| GET | `/pocket/search?q=&limit=` | Pocket Search: documents by name, the ones you opened lately first, then what `/search` finds in your places within 4 seconds. Pocket Documents and Pocket Files places are left out (those apps answer Pocket Search themselves). Each opens in the editor (`/edit/{source}?path=`) |
 | GET | `/pocket/widget` | Pocket Hub: the five documents you opened last, with the day |
 | GET/PUT | `/settings` | title and Document Server (admin), the caller's own `me` settings |
 | POST | `/settings/documentserver/test` | admin: health + a conversion round trip through `CALLBACK_URL` |
