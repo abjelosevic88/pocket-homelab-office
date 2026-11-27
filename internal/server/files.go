@@ -486,6 +486,14 @@ func (s *Server) handleForgetRecent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// searchHit is a file found by its name in one of a person's sources.
+type searchHit struct {
+	fileView
+	SourceID   int64  `json:"source_id"`
+	SourceName string `json:"source_name"`
+	SourceKind string `json:"source_kind"`
+}
+
 // handleSearch looks for a name across every source (folder trees are
 // walked, at most a few thousand entries each).
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
@@ -496,18 +504,25 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
-	srcs, err := s.store.ListSources(ctx, me(r))
+	hits, err := s.searchNames(ctx, me(r), r.URL.Query().Get("q"))
 	if err != nil {
 		s.fail(w, err, "sources")
 		return
 	}
-	type hit struct {
-		fileView
-		SourceID   int64  `json:"source_id"`
-		SourceName string `json:"source_name"`
-		SourceKind string `json:"source_kind"`
+	writeJSON(w, http.StatusOK, hits)
+}
+
+// searchNames finds the files whose name has q in a person's sources,
+// newest first, at most 200: Pocket Documents searches itself, every other
+// source has its folder tree walked (at most 4000 entries each). It stops
+// walking when ctx ends and answers what it found by then.
+func (s *Server) searchNames(ctx context.Context, uid int64, raw string) ([]searchHit, error) {
+	q := strings.ToLower(strings.TrimSpace(raw))
+	srcs, err := s.store.ListSources(ctx, uid)
+	if err != nil {
+		return nil, err
 	}
-	hits := []hit{}
+	hits := []searchHit{}
 	for _, src := range srcs {
 		b, err := s.backendFor(ctx, &src)
 		if err != nil {
@@ -515,10 +530,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 		name := firstNonEmpty(src.Name, defaultSourceName(src.Kind))
 		if d, ok := b.(*docsBackend); ok {
-			docs, err := d.list(ctx, r.URL.Query().Get("q"))
+			docs, err := d.list(ctx, raw)
 			if err == nil {
 				for i := range docs {
-					hits = append(hits, hit{fileView: view(docs[i].entry()), SourceID: src.ID, SourceName: name, SourceKind: src.Kind})
+					hits = append(hits, searchHit{fileView: view(docs[i].entry()), SourceID: src.ID, SourceName: name, SourceKind: src.Kind})
 					if len(hits) >= 200 {
 						break
 					}
@@ -541,7 +556,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				if office.Opens(e.Name) && strings.Contains(strings.ToLower(e.Name), q) {
-					hits = append(hits, hit{fileView: view(e), SourceID: src.ID, SourceName: name, SourceKind: src.Kind})
+					hits = append(hits, searchHit{fileView: view(e), SourceID: src.ID, SourceName: name, SourceKind: src.Kind})
 				}
 			}
 		}
@@ -550,7 +565,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if len(hits) > 200 {
 		hits = hits[:200]
 	}
-	writeJSON(w, http.StatusOK, hits)
+	return hits, nil
 }
 
 // handleDashboard feeds the Homepage widget.

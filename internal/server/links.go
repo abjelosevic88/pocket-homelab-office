@@ -46,6 +46,17 @@ var portable = &core.Portable{
 	},
 }
 
+// capabilities are what Pocket Search and Pocket Hub may ask here for a
+// person (docs/capabilities.md in pocket-homelab-core): one value for the
+// manifest, the routes (capabilities.go) and linkAllows. No day: Pocket
+// Office keeps no history of edits, only the last time each file was opened.
+// No quick line: a document is not a line.
+var capabilities = core.Capabilities{
+	Search: &core.Searchable{What: "Your documents, spreadsheets and presentations, by name, in every place you added",
+		Kinds: []string{"document", "spreadsheet", "presentation"}, Bangs: []string{"office", "doc", "sheet"}},
+	Widget: &core.Widget{Title: "Recent documents", What: "The documents you opened last"},
+}
+
 type linkRoute struct {
 	methods string
 	path    *regexp.Regexp
@@ -62,7 +73,7 @@ var linkRoutes = []linkRoute{
 var errLinkScope = errors.New("outside the link's scope")
 
 func linkAllows(scopes []string, r *http.Request) bool {
-	if portable.LinkAllows(scopes, r) {
+	if portable.LinkAllows(scopes, r) || capabilities.LinkAllows(scopes, r) {
 		return true
 	}
 	for _, lr := range linkRoutes {

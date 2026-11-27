@@ -44,7 +44,7 @@ With `CORE_URL` set the app registers itself (slug `office`), and for each perso
 - a link into **Pocket Documents** (`documents:read` + `documents:write`), so the office files in the archive open and save back without an API token;
 - a link into **Pocket Files** (`files:read` + `files:write`): a Pocket Files place is the person's home there (or a folder in it) over WebDAV at `<files url>/dav/`, with a `pcx_` token minted for the place's owner as the password. A token is used for four minutes at most (never in its last minute) and then Core is asked again, so switching the link off in Core stops the place within minutes. Pocket Files serves every home at one address, so the owner's email is part of a file's canonical name. Without `CORE_URL` the option is not offered.
 
-It also gives *Sign in with Pocket Core*, accepts Core device tokens (`pcd_`/`pcu_`/`pco_`) as bearer tokens, publishes `office.opened`, `office.saved` and `office.created` on the bus, and offers other apps `files:read` (list places, browse, search). Without `CORE_URL` every place is typed in by hand and everything else works the same.
+It also gives *Sign in with Pocket Core*, accepts Core device tokens (`pcd_`/`pcu_`/`pco_`) as bearer tokens, publishes `office.opened`, `office.saved` and `office.created` on the bus, and offers other apps `files:read` (list places, browse, search). It also tells Core its shelf (`Files`) and answers Pocket Search (`pocket:search`, bangs `!office`, `!doc`, `!sheet`) and Pocket Hub (`pocket:widget`, "Recent documents"); a link token with one of those scopes reaches only its one route. There is no day for Pocket Day (Office keeps no history of edits, only when each file was last opened) and no quick line. Without `CORE_URL` every place is typed in by hand and everything else works the same.
 
 ## Data on disk
 
@@ -80,7 +80,7 @@ Every person has a **Drafts** place (`DATA_DIR/drafts/<user id>/`). `POST /api/v
 
 ## API
 
-Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Settings → API tokens), a Pocket Core token (`pcd_`, `pcu_`, `pco_`) or a Core app-link token (`pcx_`, `files:read`). Errors are `{"error": "…"}`.
+Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Settings → API tokens), a Pocket Core token (`pcd_`, `pcu_`, `pco_`) or a Core app-link token (`pcx_`, `files:read`, `pocket:search`, `pocket:widget`). Errors are `{"error": "…"}`.
 
 | Method | Path | Notes |
 |---|---|---|
@@ -105,6 +105,8 @@ Base path `/api/v1`. The session cookie, `Authorization: Bearer po_…` (Setting
 | GET | `/recent` · DELETE `/recent?source=&path=` | lately opened files |
 | GET | `/search?q=` | a name across every place (folder trees walked, at most a few thousand entries each) |
 | GET | `/dashboard` | `{sources, open_now, opened_week, last, recent, document_server}` for a dashboard widget |
+| GET | `/pocket/search?q=&limit=` | Pocket Search: documents by name, the ones you opened lately first, then what `/search` finds in your places within 4 seconds. Each opens in the editor (`/edit/{source}?path=`) |
+| GET | `/pocket/widget` | Pocket Hub: the five documents you opened last, with the day |
 | GET/PUT | `/settings` | title and Document Server (admin), the caller's own `me` settings |
 | POST | `/settings/documentserver/test` | admin: health + a conversion round trip through `CALLBACK_URL` |
 | GET/POST/PUT/DELETE | `/users` · `/users/{id}` | admin |

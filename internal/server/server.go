@@ -194,6 +194,9 @@ func (s *Server) Router() http.Handler {
 			r.Get("/export.zip", s.handleExportZip)
 			r.Post("/import", s.handleImportZip)
 			r.Get(strings.TrimPrefix(core.PortablePath, "/api/v1"), portable.Handler())
+			// for Pocket Search and Pocket Hub (capabilities.go)
+			r.Get("/pocket/search", core.SearchHandler(s.pocketSearch))
+			r.Get("/pocket/widget", core.WidgetHandler(s.pocketWidget))
 		})
 	})
 
@@ -308,13 +311,15 @@ func (s *Server) manifest() core.Manifest {
 	m := core.Manifest{
 		Slug: "office", Name: "Pocket Office",
 		Description: "Word, Excel and PowerPoint files opened and edited in the browser with ONLYOFFICE, from Nextcloud, Pocket Documents, WebDAV or a folder on the box.",
-		Icon:        "/favicon.svg", Version: Version,
+		Icon:        "/favicon.svg", Version: Version, Category: "Files",
 		URL: s.cfg.CoreAppURL, PublicURL: s.cfg.BaseURL, HealthPath: "/healthz", EnvPrefix: "OFFICE",
 		Publishes: []string{"office.opened", "office.saved", "office.created", "office.sent_for_review"},
 		Offers:    linkOffers,
 		Portable:  portable,
 		Uses:      linkUses,
 		Services:  serviceUses,
+		// What Pocket Search and Pocket Hub ask every app (capabilities in links.go).
+		Capabilities: capabilities,
 	}
 	if s.cfg.BaseURL != "" {
 		m.OIDC = &core.OIDCRequest{RedirectURIs: []string{s.cfg.BaseURL + "/api/v1/auth/oidc/callback"}}
